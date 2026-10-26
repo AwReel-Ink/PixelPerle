@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--PWA-HEAD-->
+<meta name="theme-color" content="#D3366F">
+<meta name="description" content="Convertir une image en modèle de perles à repasser 2,6 mm, plaque par plaque.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pixel Perles">
+<!--/PWA-HEAD-->
+<!--ARTIFACT-START-->
+<title>Pixel Perles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-plates" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5"/><g class="dots"><circle cx="8" cy="8" r="1.2"/><circle cx="12" cy="8" r="1.2"/><circle cx="16" cy="8" r="1.2"/><circle cx="8" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="16" cy="12" r="1.2"/><circle cx="8" cy="16" r="1.2"/><circle cx="12" cy="16" r="1.2"/><circle cx="16" cy="16" r="1.2"/></g></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><circle cx="7.5" cy="8" r="3.5"/><circle cx="16.5" cy="8" r="3.5"/><circle cx="12" cy="16" r="3.5"/><circle cx="7.5" cy="8" r="1"/><circle cx="16.5" cy="8" r="1"/><circle cx="12" cy="16" r="1"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="9.5" r="1.8"/><path d="M4 17.5l5-5 4 4 2.5-2.5L20 18"/></symbol>
+    <symbol id="i-brush" viewBox="0 0 24 24"><path d="M14.5 4.5l5 5L9 20H4v-5z"/><path d="M12.5 6.5l5 5"/></symbol>
+    <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M4.5 16.5v2a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-2"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/><circle cx="12" cy="12" r="6.5"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M9 20h6M12 16.5V20"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7L4.5 11.5 9 16"/><path d="M5 11.5h9.5a5 5 0 0 1 0 10H11"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 7l4.5 4.5L15 16"/><path d="M19 11.5H9.5a5 5 0 0 0 0 10H13"/></symbol>
+    <symbol id="i-eraser" viewBox="0 0 24 24"><path d="M8.5 20h11"/><path d="M4.8 14.7l9.9-9.9a2 2 0 0 1 2.8 0l2.7 2.7a2 2 0 0 1 0 2.8L12.3 18.2a6 6 0 0 1-2.1 1.3H8.6l-3.8-3.9a1 1 0 0 1 0-.9z"/><path d="M9 10.5l5.5 5.5"/></symbol>
+    <symbol id="i-pipette" viewBox="0 0 24 24"><path d="M14.5 6.5l3 3"/><path d="M16 3.5a2.1 2.1 0 0 1 3 0l1.5 1.5a2.1 2.1 0 0 1 0 3l-3 3-4.5-4.5z"/><path d="M13 8L5 16v3h3l8-8"/></symbol>
+    <symbol id="i-bucket" viewBox="0 0 24 24"><path d="M5 11l7-7 7 7-7 7z"/><path d="M5 11h14"/><path d="M20.5 15.5s1.5 2 1.5 3a1.5 1.5 0 0 1-3 0c0-1 1.5-3 1.5-3z"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24"><path d="M8 12V5.5a1.5 1.5 0 0 1 3 0V11"/><path d="M11 10.5V4a1.5 1.5 0 0 1 3 0v6.5"/><path d="M14 10.5V5.5a1.5 1.5 0 0 1 3 0V13"/><path d="M8 12l-1.6-1.6a1.6 1.6 0 0 0-2.3 2.2L8 17a7 7 0 0 0 5 2h.5a4.5 4.5 0 0 0 4.5-4.5V9a1.5 1.5 0 0 0-3 0"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 7h15M10 11v6M14 11v6"/><path d="M6.5 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h6a1.5 1.5 0 0 0 1.5-1.5l1-12.5"/><path d="M9.5 7V4.5h5V7"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/></symbol>
+    <symbol id="i-rotl" viewBox="0 0 24 24"><path d="M4.5 9.5A8 8 0 1 1 4 14"/><path d="M4 4.5v5h5"/></symbol>
+    <symbol id="i-rotr" viewBox="0 0 24 24"><path d="M19.5 9.5A8 8 0 1 0 20 14"/><path d="M20 4.5v5h-5"/></symbol>
+    <symbol id="i-fliph" viewBox="0 0 24 24"><path d="M12 3v18" stroke-dasharray="2 2.5"/><path d="M9 6L3.5 18H9z"/><path d="M15 6l5.5 12H15z"/></symbol>
+    <symbol id="i-flipv" viewBox="0 0 24 24"><path d="M3 12h18" stroke-dasharray="2 2.5"/><path d="M6 9L18 3.5V9z"/><path d="M6 15l12 5.5V15z"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.3l1.5-2.2h5.4L16.2 7h2.3A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4"/><path d="M7.5 8.5L12 4l4.5 4.5"/><path d="M4.5 16.5v2a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-2"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-sort" viewBox="0 0 24 24"><path d="M8 5v14M4.5 15.5L8 19l3.5-3.5"/><path d="M13 7h7M13 11h5M13 15h3"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4.2l2 2H19a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/></symbol>
+    <symbol id="i-wand" viewBox="0 0 24 24"><path d="M4 20L15 9"/><path d="M14 5.5l1-2.5 1 2.5 2.5 1-2.5 1-1 2.5-1-2.5-2.5-1z"/><path d="M19 13l.6 1.4 1.4.6-1.4.6L19 17l-.6-1.4L17 15l1.4-.6z"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1.5" stroke-dasharray="3 2.5"/><path d="M12 9v6M9 12h6"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 12h6" /></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><circle cx="6" cy="6" r="1.6"/><circle cx="18" cy="9" r="1.6"/><circle cx="9" cy="18" r="1.6"/><path d="M13 13l7 7M13 13h4M13 13v4"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M5 8h13M14.5 4.5L18 8l-3.5 3.5"/><path d="M19 16H6M9.5 12.5L6 16l3.5 3.5"/></symbol>
+  </defs>
+</svg>
+
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="brand" aria-label="Pixel Perles">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span class="brand-name">Pixel Perles</span>
+    </div>
+    <button class="project-btn" id="projectBtn" type="button" title="Projets">
+      <svg class="ic"><use href="#i-folder"/></svg>
+      <span id="projectName">Projet</span>
+      <svg class="ic ic-sm"><use href="#i-chevron"/></svg>
+    </button>
+    <span class="save-state" id="saveState" aria-live="polite"></span>
+    <div class="topbar-spacer"></div>
+    <button class="icon-btn" id="uiToggle" type="button" title="Passer à l’interface mobile"><svg class="ic"><use href="#i-phone"/></svg></button>
+    <button class="icon-btn" id="settingsBtn" type="button" title="Paramètres"><svg class="ic"><use href="#i-gear"/></svg></button>
+  </header>
+
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Étapes">
+    <button type="button" role="tab" data-tab="plates" title="Plateau (1)"><svg class="ic"><use href="#i-plates"/></svg><span>Plateau</span></button>
+    <button type="button" role="tab" data-tab="palette" title="Palette (2)"><svg class="ic"><use href="#i-palette"/></svg><span>Palette</span></button>
+    <button type="button" role="tab" data-tab="image" title="Image (3)"><svg class="ic"><use href="#i-image"/></svg><span>Image</span></button>
+    <button type="button" role="tab" data-tab="edit" title="Retouche (4)"><svg class="ic"><use href="#i-brush"/></svg><span>Retouche</span></button>
+    <button type="button" role="tab" data-tab="export" title="Export (5)"><svg class="ic"><use href="#i-export"/></svg><span>Export</span></button>
+  </nav>
+
+  <aside class="panel" id="panel">
+    <button class="sheet-handle" id="sheetHandle" type="button" aria-label="Agrandir ou réduire le panneau"><span></span></button>
+
+    <!-- ===================== PLATEAU ===================== -->
+    <section class="pane" data-pane="plates">
+      <div class="pane-head">
+        <h2>Plateau</h2>
+        <p class="lede">Disposez vos plaques là où vous voulez des perles. Elles se déplacent picot par picot et ne se chevauchent jamais.</p>
+      </div>
+      <div class="group">
+        <label class="field">
+          <span class="label">Modèle de plaque</span>
+          <select id="plateType"></select>
+        </label>
+        <div class="row-2" id="customSize" hidden>
+          <label class="field"><span class="label">Largeur (picots)</span><input id="customW" type="number" min="2" max="400" value="70" inputmode="numeric"></label>
+          <label class="field"><span class="label">Hauteur (picots)</span><input id="customH" type="number" min="2" max="400" value="70" inputmode="numeric"></label>
+          <label class="field span-2"><span class="label">Écart entre picots (mm)</span><input id="customPitch" type="number" min="1" max="10" step="0.01" value="2.6" inputmode="decimal"></label>
+        </div>
+        <p class="hint" id="plateTypeInfo"></p>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="addPlate" type="button"><svg class="ic"><use href="#i-plus"/></svg>Ajouter une plaque</button>
+        </div>
+        <details class="disclosure">
+          <summary>Ajouter un assemblage de plaques</summary>
+          <div class="row-3">
+            <label class="field"><span class="label">Colonnes</span><input id="gridCols" type="number" min="1" max="10" value="2" inputmode="numeric"></label>
+            <label class="field"><span class="label">Lignes</span><input id="gridRows" type="number" min="1" max="10" value="2" inputmode="numeric"></label>
+            <button class="btn" id="addGrid" type="button">Ajouter</button>
+          </div>
+          <p class="hint">Les plaques sont posées côte à côte, prêtes à être emboîtées.</p>
+        </details>
+        <label class="check"><input type="checkbox" id="snapToggle" checked><span>Aimanter aux bords des plaques voisines</span></label>
+      </div>
+      <div class="group">
+        <div class="group-head"><h3>Plaques</h3><span class="count" id="plateCount"></span></div>
+        <ul class="list" id="plateList"></ul>
+        <p class="hint" id="plateSummary"></p>
+      </div>
+    </section>
+
+    <!-- ===================== PALETTE ===================== -->
+    <section class="pane" data-pane="palette" hidden>
+      <div class="pane-head">
+        <h2>Palette</h2>
+        <p class="lede">Une palette = les perles que vous possédez. Photographiez-les et prélevez chaque couleur à la pipette.</p>
+      </div>
+      <div class="group">
+        <div class="field-inline">
+          <select id="paletteSelect" aria-label="Palette"></select>
+          <button class="icon-btn" id="paletteNew" type="button" title="Nouvelle palette"><svg class="ic"><use href="#i-plus"/></svg></button>
+          <button class="icon-btn" id="paletteDup" type="button" title="Dupliquer la palette"><svg class="ic"><use href="#i-copy"/></svg></button>
+          <button class="icon-btn danger" id="paletteDel" type="button" title="Supprimer la palette"><svg class="ic"><use href="#i-trash"/></svg></button>
+        </div>
+        <label class="field"><span class="label">Nom de la palette</span><input id="paletteName" type="text" maxlength="60"></label>
+        <div class="btn-row">
+          <button class="btn btn-sm" id="paletteImport" type="button"><svg class="ic"><use href="#i-upload"/></svg>Importer</button>
+          <button class="btn btn-sm" id="paletteExport" type="button"><svg class="ic"><use href="#i-export"/></svg>Exporter</button>
+        </div>
+      </div>
+      <div class="group">
+        <div class="group-head"><h3>Photo de vos perles</h3></div>
+        <div class="btn-row">
+          <button class="btn" id="photoLoad" type="button"><svg class="ic"><use href="#i-upload"/></svg>Charger une photo</button>
+          <button class="btn mobile-only" id="photoCamera" type="button"><svg class="ic"><use href="#i-camera"/></svg>Prendre une photo</button>
+        </div>
+        <p class="hint">Astuce : placez une feuille blanche dans le cadre, elle servira de référence pour corriger l’éclairage.</p>
+        <div class="seg" role="radiogroup" aria-label="Outil photo" id="photoTool">
+          <button type="button" data-v="sample" aria-pressed="true"><svg class="ic"><use href="#i-pipette"/></svg>Pipette</button>
+          <button type="button" data-v="white" aria-pressed="false"><svg class="ic"><use href="#i-target"/></svg>Blanc de référence</button>
+          <button type="button" data-v="hand" aria-pressed="false" class="mobile-only"><svg class="ic"><use href="#i-hand"/></svg>Main</button>
+        </div>
+        <p class="hint" id="photoToolHint">Tracez un rectangle dans un compartiment : la teinte moyenne est calculée sans le trou des perles ni les reflets.</p>
+        <div class="wb" id="wbBox">
+          <span class="wb-status" id="wbStatus">Balance des blancs : non réglée</span>
+          <label class="check" id="wbOnWrap" hidden><input type="checkbox" id="wbOn" checked><span>Appliquer la correction</span></label>
+          <button class="btn btn-sm btn-ghost" id="wbClear" type="button" hidden>Effacer</button>
+        </div>
+        <div class="sample-card" id="sampleCard" hidden>
+          <div class="sample-swatch" id="sampleSwatch"></div>
+          <div class="sample-body">
+            <div class="sample-hex" id="sampleHex">#000000</div>
+            <div class="row-2">
+              <label class="field"><span class="label">Code</span><input id="sampleCode" type="text" maxlength="5" autocomplete="off" placeholder="J0"></label>
+              <label class="field"><span class="label">Nom</span><input id="sampleName" type="text" maxlength="40" autocomplete="off" placeholder="Jaune clair"></label>
+            </div>
+            <p class="field-error" id="sampleError" hidden></p>
+            <div class="btn-row">
+              <button class="btn btn-primary btn-sm" id="sampleAdd" type="button"><svg class="ic"><use href="#i-plus"/></svg>Ajouter</button>
+              <button class="btn btn-sm" id="sampleReplace" type="button" hidden>Remplacer</button>
+              <button class="btn btn-sm btn-ghost" id="sampleCancel" type="button">Ignorer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="group">
+        <div class="group-head">
+          <h3>Couleurs</h3><span class="count" id="colorCount"></span>
+          <div class="group-actions">
+            <button class="icon-btn" id="colorSort" type="button" title="Trier par code"><svg class="ic"><use href="#i-sort"/></svg></button>
+            <button class="icon-btn" id="colorAdd" type="button" title="Ajouter une couleur à la main"><svg class="ic"><use href="#i-plus"/></svg></button>
+          </div>
+        </div>
+        <p class="hint">Le code (1 à 5 caractères, ex. J0, O1, 12) est écrit dans chaque perle de l’export. La valeur hexadécimale est la teinte mesurée : vous pouvez la corriger ou saisir celle publiée par le fabricant.</p>
+        <ul class="color-list" id="colorList"></ul>
+        <details class="disclosure">
+          <summary>Ajouter une liste de couleurs</summary>
+          <p class="hint">Une couleur par ligne : code, nom, puis la teinte en hexadécimal. Exemple : <code>J0 Jaune clair #FCEB8B</code></p>
+          <textarea id="bulkText" rows="4" spellcheck="false" placeholder="J0 Jaune clair #FCEB8B&#10;J1 Jaune #F9D531"></textarea>
+          <button class="btn btn-sm" id="bulkAdd" type="button">Ajouter ces couleurs</button>
+        </details>
+      </div>
+    </section>
+
+    <!-- ===================== IMAGE ===================== -->
+    <section class="pane" data-pane="image" hidden>
+      <div class="pane-head">
+        <h2>Image</h2>
+        <p class="lede">Placez l’image sur vos plaques. Faites-la glisser, et utilisez les coins pour l’agrandir sans la déformer.</p>
+      </div>
+      <div class="group">
+        <div class="btn-row">
+          <button class="btn" id="imgLoad" type="button"><svg class="ic"><use href="#i-upload"/></svg><span id="imgLoadLabel">Importer une image</span></button>
+          <button class="btn mobile-only" id="imgCamera" type="button"><svg class="ic"><use href="#i-camera"/></svg>Photo</button>
+        </div>
+        <div id="imgTools" hidden>
+          <div class="tool-row">
+            <button class="icon-btn" id="imgRotL" type="button" title="Pivoter à gauche (Maj+R)"><svg class="ic"><use href="#i-rotl"/></svg></button>
+            <button class="icon-btn" id="imgRotR" type="button" title="Pivoter à droite (R)"><svg class="ic"><use href="#i-rotr"/></svg></button>
+            <button class="icon-btn" id="imgFlipH" type="button" title="Miroir horizontal (F)"><svg class="ic"><use href="#i-fliph"/></svg></button>
+            <button class="icon-btn" id="imgFlipV" type="button" title="Miroir vertical (Maj+F)"><svg class="ic"><use href="#i-flipv"/></svg></button>
+            <button class="btn btn-sm" id="imgFit" type="button"><svg class="ic"><use href="#i-fit"/></svg>Ajuster aux plaques</button>
+            <button class="icon-btn danger" id="imgDel" type="button" title="Retirer l’image"><svg class="ic"><use href="#i-trash"/></svg></button>
+          </div>
+          <p class="hint" id="imgInfo"></p>
+          <label class="field"><span class="label">Opacité à l’écran <output id="imgOpacityOut"></output></span><input id="imgOpacity" type="range" min="10" max="100" value="85"></label>
+        </div>
+      </div>
+      <div class="group" id="adjustGroup" hidden>
+        <div class="group-head"><h3>Réglages de l’image</h3>
+          <div class="group-actions"><button class="btn btn-sm btn-ghost" id="adjReset" type="button">Réinitialiser</button></div>
+        </div>
+        <label class="field"><span class="label">Luminosité <output id="adjBrightnessOut"></output></span><input id="adjBrightness" type="range" min="-100" max="100" value="0"></label>
+        <label class="field"><span class="label">Contraste <output id="adjContrastOut"></output></span><input id="adjContrast" type="range" min="-100" max="100" value="0"></label>
+        <label class="field"><span class="label">Saturation <output id="adjSaturationOut"></output></span><input id="adjSaturation" type="range" min="-100" max="100" value="0"></label>
+      </div>
+      <div class="group conv-group">
+        <div class="group-head"><h3>Conversion</h3></div>
+        <label class="field"><span class="label">Palette utilisée</span><select id="convPalette"></select></label>
+        <div class="field">
+          <span class="label">Couleur de chaque picot</span>
+          <div class="seg" id="convMode" role="radiogroup">
+            <button type="button" data-v="mean" aria-pressed="true">Moyenne</button>
+            <button type="button" data-v="dominant" aria-pressed="false">Dominante</button>
+          </div>
+          <p class="hint" id="convModeHint"></p>
+        </div>
+        <div class="row-2">
+          <label class="field"><span class="label">Couleurs max.</span><input id="convMax" type="number" min="0" max="200" value="0" inputmode="numeric"></label>
+          <label class="field" id="ditherField"><span class="label">Tramage <output id="convDitherOut"></output></span><input id="convDither" type="range" min="0" max="100" value="0"></label>
+        </div>
+        <p class="hint">Couleurs max. : 0 = toute la palette. Le tramage mélange les perles pour adoucir les dégradés, au prix de perles isolées.</p>
+        <button class="btn btn-go" id="convertBtn" type="button"><svg class="ic"><use href="#i-wand"/></svg>Conversion</button>
+        <div class="progress" id="convProgress" hidden><span></span></div>
+      </div>
+    </section>
+
+    <!-- ===================== RETOUCHE ===================== -->
+    <section class="pane" data-pane="edit" hidden>
+      <div class="pane-head">
+        <h2>Retouche</h2>
+        <p class="lede" id="editLede">Corrigez les perles une à une. La gomme marque un picot vide : idéal pour découper une forme.</p>
+      </div>
+      <div class="empty-note" id="editEmpty">Lancez d’abord la <b>Conversion</b> depuis l’onglet Image.</div>
+      <div id="editBody">
+        <div class="group">
+          <div class="seg seg-tools" id="editTools" role="radiogroup" aria-label="Outil">
+            <button type="button" data-v="brush" title="Pinceau (B)"><svg class="ic"><use href="#i-brush"/></svg><span>Pinceau</span></button>
+            <button type="button" data-v="erase" title="Gomme (E)"><svg class="ic"><use href="#i-eraser"/></svg><span>Gomme</span></button>
+            <button type="button" data-v="pick" title="Pipette (I)"><svg class="ic"><use href="#i-pipette"/></svg><span>Pipette</span></button>
+            <button type="button" data-v="fill" title="Remplissage (G)"><svg class="ic"><use href="#i-bucket"/></svg><span>Remplir</span></button>
+            <button type="button" data-v="hand" title="Main (H ou Espace)"><svg class="ic"><use href="#i-hand"/></svg><span>Main</span></button>
+          </div>
+          <div class="field-inline">
+            <span class="label">Taille</span>
+            <div class="seg seg-sm" id="brushSize" role="radiogroup">
+              <button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button>
+            </div>
+            <div class="spacer"></div>
+            <button class="icon-btn" id="undoBtn" type="button" title="Annuler (Ctrl+Z)"><svg class="ic"><use href="#i-undo"/></svg></button>
+            <button class="icon-btn" id="redoBtn" type="button" title="Rétablir (Ctrl+Y)"><svg class="ic"><use href="#i-redo"/></svg></button>
+          </div>
+        </div>
+        <div class="group">
+          <div class="group-head"><h3>Couleur active</h3><span class="count" id="activeColorLabel"></span></div>
+          <label class="check"><input type="checkbox" id="swatchUsedOnly"><span>Seulement les couleurs utilisées</span></label>
+          <div class="swatches" id="swatches"></div>
+        </div>
+        <div class="group">
+          <div class="group-head"><h3>Affichage</h3></div>
+          <label class="check"><input type="checkbox" id="viewBeads"><span>Rendu perles (rondes, avec le trou)</span></label>
+          <label class="check"><input type="checkbox" id="viewCodes" checked><span>Codes dans les perles (en zoomant)</span></label>
+          <label class="check"><input type="checkbox" id="viewOverlay"><span>Superposer l’image d’origine</span></label>
+        </div>
+        <div class="group">
+          <div class="group-head"><h3>Remplacer une couleur</h3></div>
+          <div class="row-swap">
+            <select id="replFrom" aria-label="Couleur à remplacer"></select>
+            <svg class="ic"><use href="#i-swap"/></svg>
+            <select id="replTo" aria-label="Nouvelle couleur"></select>
+          </div>
+          <div class="field-inline">
+            <select id="replScope" aria-label="Portée"><option value="all">Toutes les plaques</option><option value="sel">Plaque sélectionnée</option></select>
+            <button class="btn btn-sm" id="replBtn" type="button">Remplacer</button>
+          </div>
+        </div>
+        <div class="group">
+          <div class="group-head"><h3>Perles isolées</h3></div>
+          <p class="hint">Une perle sans aucune voisine de sa couleur prend la couleur la plus présente autour d’elle.</p>
+          <div class="field-inline">
+            <select id="cleanScope" aria-label="Portée"><option value="all">Toutes les plaques</option><option value="sel">Plaque sélectionnée</option></select>
+            <button class="btn btn-sm" id="cleanBtn" type="button"><svg class="ic"><use href="#i-sparkle"/></svg>Nettoyer</button>
+          </div>
+        </div>
+        <p class="hint" id="editStats"></p>
+      </div>
+    </section>
+
+    <!-- ===================== EXPORT ===================== -->
+    <section class="pane" data-pane="export" hidden>
+      <div class="pane-head">
+        <h2>Export</h2>
+        <p class="lede">Une image PNG par plaque : grille repérée (colonnes A, B, C… et lignes 1, 2, 3…), codes des couleurs et légende avec les quantités.</p>
+      </div>
+      <div class="empty-note" id="exportEmpty">Lancez d’abord la <b>Conversion</b> depuis l’onglet Image.</div>
+      <div id="exportBody">
+        <div class="group">
+          <div class="field">
+            <span class="label">Fond</span>
+            <div class="seg" id="expBg" role="radiogroup">
+              <button type="button" data-v="white">Blanc</button><button type="button" data-v="transparent">Transparent</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="label">Style des picots</span>
+            <div class="seg" id="expStyle" role="radiogroup">
+              <button type="button" data-v="square">Cases</button><button type="button" data-v="bead">Perles rondes</button>
+            </div>
+          </div>
+          <label class="check"><input type="checkbox" id="expCodes" checked><span>Écrire le code dans chaque perle</span></label>
+          <label class="check"><input type="checkbox" id="expGuides" checked><span>Espace supplémentaire toutes les 10 perles</span></label>
+          <label class="check"><input type="checkbox" id="expLabels4" checked><span>Repères sur les 4 côtés</span></label>
+          <label class="field"><span class="label">Petit côté de la grille (pixels)</span><input id="expMinSide" type="number" min="1000" max="10000" step="10" value="4320" inputmode="numeric"></label>
+        </div>
+        <div class="group">
+          <div class="btn-stack">
+            <button class="btn btn-primary" id="expAll" type="button"><svg class="ic"><use href="#i-export"/></svg>Tout exporter (ZIP)</button>
+            <button class="btn" id="expOverview" type="button">Vue d’ensemble (PNG)</button>
+          </div>
+          <div class="progress" id="expProgress" hidden><span></span></div>
+          <p class="hint" id="expStatus"></p>
+        </div>
+        <div class="group">
+          <div class="group-head"><h3>Plaques</h3></div>
+          <ul class="list" id="expList"></ul>
+        </div>
+      </div>
+    </section>
+  </aside>
+
+  <main class="stage" id="stage">
+    <canvas id="canvas" aria-label="Espace de travail"></canvas>
+    <div class="banner" id="staleBanner" hidden>
+      <span>Les plaques ou l’image ont changé depuis la conversion.</span>
+      <button class="btn btn-sm btn-go" id="staleConvert" type="button">Reconvertir</button>
+    </div>
+    <div class="stage-empty" id="photoEmpty" hidden>
+      <svg class="ic ic-xl"><use href="#i-camera"/></svg>
+      <p><b>Aucune photo de perles</b></p>
+      <p>Chargez une photo de vos perles rangées par couleur, puis prélevez chaque teinte à la pipette.</p>
+      <button class="btn btn-primary" id="photoEmptyLoad" type="button"><svg class="ic"><use href="#i-upload"/></svg>Charger une photo</button>
+    </div>
+    <div class="quickbar" id="quickbar" hidden>
+      <button type="button" data-tool="brush" title="Pinceau"><svg class="ic"><use href="#i-brush"/></svg></button>
+      <button type="button" data-tool="erase" title="Gomme"><svg class="ic"><use href="#i-eraser"/></svg></button>
+      <button type="button" data-tool="pick" title="Pipette"><svg class="ic"><use href="#i-pipette"/></svg></button>
+      <button type="button" data-tool="fill" title="Remplir"><svg class="ic"><use href="#i-bucket"/></svg></button>
+      <span class="qb-color" id="qbColor"></span>
+      <button type="button" id="qbUndo" title="Annuler"><svg class="ic"><use href="#i-undo"/></svg></button>
+    </div>
+    <div class="hud" id="hud">
+      <button class="hud-btn" id="handBtn" type="button" title="Main : déplacer la vue (H)" aria-pressed="false"><svg class="ic"><use href="#i-hand"/></svg></button>
+      <button class="hud-btn" id="zoomOut" type="button" title="Dézoomer (−)"><svg class="ic"><use href="#i-minus"/></svg></button>
+      <span class="hud-zoom" id="zoomLabel">100 %</span>
+      <button class="hud-btn" id="zoomIn" type="button" title="Zoomer (+)"><svg class="ic"><use href="#i-plus"/></svg></button>
+      <button class="hud-btn" id="zoomFit" type="button" title="Tout afficher (0)"><svg class="ic"><use href="#i-fit"/></svg></button>
+    </div>
+    <div class="coords" id="coords"></div>
+  </main>
+</div>
+
+<div class="modal-root" id="modalRoot"></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<!--SCRIPTS-->
+<script src="js/util.js"></script>
+<script src="js/db.js"></script>
+<script src="js/files.js"></script>
+<script src="js/convert.js"></script>
+<script src="js/render.js"></script>
+<script src="js/app-core.js"></script>
+<script src="js/app-stage.js"></script>
+<script src="js/app-panels.js"></script>
+<script src="js/app-main.js"></script>
+<!--/SCRIPTS-->
+</body>
+</html>

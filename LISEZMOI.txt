@@ -1,0 +1,32 @@
+Pixel Perles — application web installable (PWA)
+==================================================
+
+Contenu du dossier
+------------------
+index.html, css/, js/       l'application
+manifest.webmanifest, sw.js installation sur l'écran d'accueil et fonctionnement hors ligne
+icons/                      icônes
+
+Mettre l'application en ligne (gratuit, 2 minutes)
+--------------------------------------------------
+Une PWA doit être servie en HTTPS pour s'installer et marcher hors ligne.
+
+Option 1 — Netlify Drop : ouvrez https://app.netlify.com/drop et glissez le dossier
+« pixel-perles » dans la page. Vous obtenez une adresse https://….netlify.app.
+
+Option 2 — GitHub Pages : créez un dépôt, envoyez le contenu du dossier, puis
+Settings > Pages > « Deploy from a branch ».
+
+Ouvrez ensuite l'adresse sur votre téléphone ou votre tablette :
+- Android (Chrome) : menu ⋮ > « Installer l'application ».
+- iPhone / iPad (Safari) : bouton Partager > « Sur l'écran d'accueil ».
+
+Tester sur l'ordinateur sans hébergement
+----------------------------------------
+Dans ce dossier, lancez :  python3 -m http.server 8000
+puis ouvrez http://localhost:8000
+
+Vos données
+-----------
+Projets et palettes restent dans le navigateur (IndexedDB), sur l'appareil.
+Pensez à exporter une sauvegarde de temps en temps : Paramètres > Exporter une sauvegarde.
