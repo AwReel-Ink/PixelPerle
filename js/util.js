@@ -187,9 +187,10 @@
   }
 
   // Copie l'image dans un canvas, réduite si elle dépasse maxSide
-  function imageToCanvas(img, maxSide) {
+  function imageToCanvas(img, maxSide, maxArea) {
     const w0 = img.naturalWidth || img.width, h0 = img.naturalHeight || img.height;
-    const s = Math.min(1, maxSide / Math.max(w0, h0));
+    let s = Math.min(1, maxSide / Math.max(w0, h0));
+    if (maxArea) s = Math.min(s, Math.sqrt(maxArea / (w0 * h0)));
     const w = Math.max(1, Math.round(w0 * s)), h = Math.max(1, Math.round(h0 * s));
     const c = document.createElement('canvas');
     c.width = w; c.height = h;

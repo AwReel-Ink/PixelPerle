@@ -26,6 +26,12 @@ Tester sur l'ordinateur sans hébergement
 Dans ce dossier, lancez :  python3 -m http.server 8000
 puis ouvrez http://localhost:8000
 
+Nuanciers
+---------
+Les nuanciers Artkal, Hama Mini et Perler Mini proviennent du projet communautaire
+« beadcolors » (licence MIT) : https://github.com/maxcleme/beadcolors
+Leurs teintes sont des relevés approximatifs des perles réelles.
+
 Vos données
 -----------
 Projets et palettes restent dans le navigateur (IndexedDB), sur l'appareil.

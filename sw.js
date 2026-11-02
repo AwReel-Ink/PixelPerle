@@ -1,5 +1,5 @@
 /* Pixel Perles — service worker : l'application fonctionne hors ligne une fois installée */
-const VERSION = 'pixel-perles-v1.0.0';
+const VERSION = 'pixel-perles-v2.4.0';
 const FONT_CACHE = 'pixel-perles-fonts';
 const ASSETS = [
   './',
@@ -10,9 +10,15 @@ const ASSETS = [
   'js/files.js',
   'js/convert.js',
   'js/render.js',
+  'js/catalogs.js',
+  'js/gridview.js',
   'js/app-core.js',
   'js/app-stage.js',
   'js/app-panels.js',
+  'js/auto.js',
+  'js/compare.js',
+  'js/guide.js',
+  'js/detect.js',
   'js/app-main.js',
   'manifest.webmanifest',
   'icons/icon.svg',

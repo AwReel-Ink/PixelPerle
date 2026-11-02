@@ -41,7 +41,9 @@
     const el = document.createElement('div');
     el.className = 'toast' + (kind === 'error' ? ' error' : '');
     el.textContent = msg;
-    $('toasts').appendChild(el);
+    const box = $('toasts');
+    box.appendChild(el);
+    while (box.children.length > 2) box.firstElementChild.remove();
     setTimeout(() => el.remove(), kind === 'error' ? 6000 : 3200);
   };
 
@@ -356,7 +358,8 @@
   function normalizeProject(p) {
     p.plates = p.plates || [];
     p.adjust = Object.assign({ brightness: 0, contrast: 0, saturation: 0 }, p.adjust || {});
-    p.conv = Object.assign({ paletteId: null, mode: 'mean', maxColors: 0, dither: 0 }, p.conv || {});
+    p.conv = Object.assign({ paletteId: null, mode: 'mean', maxColors: 0, dither: 0, step: 10, dominant: true }, p.conv || {});
+    p.guide = Object.assign({ plateId: null, mode: 'color', color: null, row: 0, done: {}, others: 'dim', codes: true, rot: 0 }, p.guide || {});
     p.exp = Object.assign({ bg: 'white', style: 'square', codes: true, guides: true, labels4: true, minSide: 4320 }, p.exp || {});
     p.disp = Object.assign({ opacity: 85, beads: false, codes: true, overlay: false }, p.disp || {});
     if (p.result) {
@@ -443,7 +446,7 @@
       id: U.uid(), name: src.name + ' (copie)', created: Date.now(), updated: Date.now(),
       plates: src.plates.map((p) => Object.assign({}, p)),
       image: src.image ? Object.assign({}, src.image) : null,
-      adjust: Object.assign({}, src.adjust), conv: Object.assign({}, src.conv), exp: Object.assign({}, src.exp), disp: Object.assign({}, src.disp),
+      adjust: Object.assign({}, src.adjust), conv: Object.assign({}, src.conv), exp: Object.assign({}, src.exp), disp: Object.assign({}, src.disp), guide: JSON.parse(JSON.stringify(src.guide || {})),
       result: src.result ? {
         colors: src.result.colors.map((c) => Object.assign({}, c)),
         grids: Object.fromEntries(Object.entries(src.result.grids).map(([k, v]) => [k, Int16Array.from(v)])),
@@ -603,54 +606,57 @@
   };
 
   // ---------- Conversion ----------
-  A.runConversion = async function () {
-    if (A.busy) return;
+  // « Conversion » ouvre le comparateur : plusieurs rendus calculés en parallèle, l'utilisateur choisit.
+  A.checkConvertible = function () {
     const p = A.project;
-    if (!p.plates.length) { A.toast('Ajoutez au moins une plaque dans l’onglet Plateau.', 'error'); return; }
-    if (!p.image || !A.imgAdj) { A.toast('Importez d’abord une image.', 'error'); return; }
+    if (!p.plates.length) { A.toast('Ajoutez au moins une plaque dans l’onglet Plateau.', 'error'); return null; }
+    if (!p.image || !A.imgAdj) { A.toast('Importez d’abord une image.', 'error'); return null; }
     const pal = A.convPalette();
-    if (!pal || !pal.colors.length) { A.toast('La palette choisie est vide. Ajoutez des couleurs dans l’onglet Palette.', 'error'); return; }
+    if (!pal || !pal.colors.length) { A.toast('La palette choisie est vide. Ajoutez des couleurs dans l’onglet Palette.', 'error'); return null; }
+    return pal;
+  };
+
+  A.runConversion = function () {
+    if (A.busy || !A.project) return;
+    if (!A.checkConvertible()) return;
+    A.compare.open();
+  };
+
+  // Enregistre le rendu choisi dans le comparateur comme résultat du projet
+  A.applyVariant = async function (item, colors, paletteName) {
+    const p = A.project;
     if (p.result && p.result.edited) {
-      const ok = await A.confirm('Une nouvelle conversion remplace les retouches faites à la main. Continuer ?', 'Reconvertir');
-      if (!ok) return;
+      const ok = await A.confirm('Ce rendu remplace les retouches faites à la main sur la conversion précédente. Continuer ?', 'Remplacer');
+      if (!ok) return false;
     }
-    A.busy = true;
-    A.panels.setProgress('convProgress', 0);
-    const btn = $('convertBtn');
-    btn.disabled = true;
-    try {
-      await U.nextFrame();
-      const res = await PP.convert.convert({
-        plates: p.plates, image: p.image, src: A.imgAdj, colors: pal.colors,
-        mode: p.conv.mode, maxColors: p.conv.maxColors, dither: p.conv.dither / 100,
-      }, (f) => A.panels.setProgress('convProgress', f));
-      p.result = {
-        colors: pal.colors.map((c) => ({ code: c.code, name: c.name, hex: c.hex })),
-        paletteName: pal.name,
-        grids: res.grids,
-        sig: A.geoSig(),
-        date: Date.now(),
-        edited: false,
-      };
-      A.edit.undo = []; A.edit.redo = [];
-      A.plateCache.clear();
-      // couleur active : la plus utilisée
-      let best = 0;
-      res.counts.forEach((v, i) => { if (v > res.counts[best]) best = i; });
-      A.edit.color = best;
-      const used = res.counts.reduce((n, v) => n + (v > 0 ? 1 : 0), 0);
-      A.touch();
-      A.setTab('edit');
-      if (A.uiMode() === 'mobile') { A.panels.setSheet(false); setTimeout(() => A.stage.fitView(), 80); }
-      A.toast('Conversion terminée : ' + used + ' couleur' + (used > 1 ? 's' : '') + ' utilisée' + (used > 1 ? 's' : '') + '.');
-    } catch (e) {
-      console.error(e);
-      A.toast(e.message || 'La conversion a échoué.', 'error');
-    } finally {
-      A.busy = false;
-      btn.disabled = false;
-      A.panels.setProgress('convProgress', null);
-    }
+    const grids = {};
+    Object.keys(item.grids).forEach((k) => { grids[k] = Int16Array.from(item.grids[k]); });
+    p.result = {
+      colors: colors.map((c) => ({ code: c.code, name: c.name, hex: c.hex })),
+      paletteName,
+      grids,
+      sig: A.geoSig(),
+      date: Date.now(),
+      edited: false,
+      variant: { mode: item.mode, dither: item.dither, auto: !!item.auto, kind: item.kind || null },
+    };
+    p.conv.mode = item.mode;
+    if (item.mode === 'mean') p.conv.dither = item.dither;
+    A.edit.undo = []; A.edit.redo = [];
+    A.plateCache.clear();
+    let best = 0;
+    item.counts.forEach((v, i) => { if (v > item.counts[best]) best = i; });
+    A.edit.color = best;
+    A.touch();
+    A.setTab('edit');
+    if (A.uiMode() === 'mobile') { A.panels.setSheet(false); setTimeout(() => A.stage.fitView(), 80); }
+    A.toast('Rendu « ' + item.label + ' » retenu : ' + item.used + ' couleur' + (item.used > 1 ? 's' : '') + '.');
+    return true;
+  };
+
+  A.variantLabel = function (v) {
+    if (v.auto) return 'Meilleur rendu (' + A.auto.describe(v) + ')';
+    return v.mode === 'dominant' ? 'Dominante' : v.dither === 0 ? 'Sans tramage' : 'Tramage ' + v.dither + ' %';
   };
 
   // ---------- Sauvegarde complète ----------

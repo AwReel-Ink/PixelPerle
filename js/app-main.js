@@ -13,7 +13,7 @@
   }
 
   document.addEventListener('keydown', (e) => {
-    if (!A.project || document.querySelector('.modal-backdrop')) return;
+    if (!A.project || document.querySelector('.modal-backdrop') || A.compare.isOpen() || !document.getElementById('guide').hidden) return;
     const typing = isTyping(e.target);
     if (e.key === ' ' && !typing) {
       if (e.target.tagName === 'BUTTON') return;
@@ -28,7 +28,7 @@
     if (ctrl && k === 'y') { e.preventDefault(); if (A.hasResult()) A.stage.undo(true); return; }
     if (ctrl && e.key === 'Enter') { e.preventDefault(); A.runConversion(); return; }
     if (ctrl || e.altKey) return;
-    const tabs = { 1: 'plates', 2: 'palette', 3: 'image', 4: 'edit', 5: 'export' };
+    const tabs = { 1: 'plates', 2: 'image', 3: 'edit', 4: 'palette', 5: 'export', 6: 'guide' };
     if (tabs[e.key]) { A.setTab(tabs[e.key]); return; }
     if (e.key === '+' || e.key === '=') { A.stage.zoomBy(1.25); return; }
     if (e.key === '-' || e.key === '_') { A.stage.zoomBy(0.8); return; }
@@ -95,6 +95,7 @@
     await A.loadSettings();
     A.applyTheme();
     A.applyUI();
+    A.guide.applySide();
     if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => A.stage.readTheme());
     window.addEventListener('resize', U.debounce(() => { if (A.settings.ui === 'auto') A.applyUI(); }, 200));
     A.panels.init();

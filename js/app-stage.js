@@ -356,7 +356,8 @@
       const r = pal.wb.rect;
       rect({ x: r[0], y: r[1], w: r[2], h: r[3] }, '#FFFFFF', [5, 4]);
     }
-    if (A.photo.lastRect) rect(A.photo.lastRect, theme.accent || '#f06');
+    if (A.detect && A.detect.active) A.detect.draw(ctx, v);
+    if (A.photo.lastRect && !(A.detect && A.detect.active)) rect(A.photo.lastRect, theme.accent || '#f06');
     if (A.photo.selRect) rect(A.photo.selRect, A.photoTool === 'white' ? '#FFFFFF' : '#FFFF66', [4, 3]);
   }
 
@@ -822,5 +823,18 @@
     A.redraw();
   };
 
+  // Amène un rectangle de la photo dans le champ s'il n'est pas entièrement visible
+  S.focusPhoto = function (r) {
+    if (!r || !isPhoto()) return;
+    const v = phView;
+    const x0 = (r.x - v.x) * v.s, y0 = (r.y - v.y) * v.s, x1 = x0 + r.w * v.s, y1 = y0 + r.h * v.s;
+    if (x0 >= 0 && y0 >= 0 && x1 <= W && y1 <= H) { A.redraw(); return; }
+    if (r.w * v.s > W * 0.9 || r.h * v.s > H * 0.9) v.s = Math.min((W * 0.6) / r.w, (H * 0.6) / r.h);
+    v.x = r.x + r.w / 2 - W / 2 / v.s;
+    v.y = r.y + r.h / 2 - H / 2 / v.s;
+    updateZoomLabel();
+    A.redraw();
+  };
   S.size = () => ({ W, H });
+  S.getTheme = () => theme;
 })();

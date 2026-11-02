@@ -43,6 +43,7 @@
     if (tab === 'export') panels.refreshExport();
     if (tab === 'plates') panels.refreshPlates();
     if (tab === 'image') panels.refreshImage();
+    if (tab === 'guide') panels.refreshGuidePane();
     panels.syncChrome();
     if (tab === 'palette' || prev === 'palette') A.stage.fitView();
     else A.stage.onTabChange();
@@ -98,6 +99,8 @@
     initImage();
     initEdit();
     initExport();
+    initGuidePane();
+    PP.detect.init();
   };
 
   panels.refresh = function () {
@@ -108,6 +111,7 @@
     panels.refreshImage();
     panels.refreshEdit();
     panels.refreshExport();
+    panels.refreshGuidePane();
     panels.syncChrome();
   };
 
@@ -217,6 +221,7 @@
       A.settings.paletteId = e.target.value;
       A.saveSettings();
       A.sample = null; A.selColorId = null; A.photo.lastRect = null;
+      if (A.detect) { A.detect.active = false; A.detect.cands = []; }
       ensurePhoto(true);
       panels.refreshPalette();
     });
@@ -260,7 +265,8 @@
     $('photoLoad').addEventListener('click', () => loadPhoto());
     $('photoEmptyLoad').addEventListener('click', () => loadPhoto());
     $('photoCamera').addEventListener('click', () => loadPhoto('environment'));
-    bindSeg($('photoTool'), (v) => {
+    bindSeg($('photoTool'), (v) => panels.setPhotoTool(v));
+    panels.setPhotoTool = (v) => {
       A.photoTool = v;
       setSeg($('photoTool'), v);
       $('photoToolHint').textContent = v === 'white'
@@ -268,7 +274,7 @@
         : v === 'hand' ? 'Faites glisser pour déplacer la photo. Pincez pour zoomer.'
           : 'Tracez un rectangle dans un compartiment : la teinte moyenne est calculée sans le trou des perles ni les reflets.';
       A.stage.updateCursor();
-    });
+    };
     $('wbOn').addEventListener('change', (e) => {
       const pal = A.currentPalette();
       if (!pal || !pal.wb) return;
@@ -353,6 +359,8 @@
       list.querySelectorAll('li').forEach((x) => x.classList.toggle('selected', x.dataset.id === A.selColorId));
       refreshSample();
     });
+    $('colorNamesAsCodes').addEventListener('click', namesAsCodes);
+    $('colorStock').addEventListener('click', () => openStock(A.currentPalette()));
     $('colorSort').addEventListener('click', () => {
       const pal = A.currentPalette();
       if (!pal) return;
@@ -391,6 +399,110 @@
     });
   }
 
+  // ---------- Stock restant ----------
+  function stockSummary(pal) {
+    if (!pal) return '';
+    const lim = pal.colors.filter((c) => c.stock != null && c.stock !== '');
+    if (!lim.length) return 'Aucune limite : toutes vos couleurs sont en quantité suffisante.';
+    const out = lim.filter((c) => +c.stock === 0), few = lim.filter((c) => +c.stock > 0);
+    const parts = [];
+    if (out.length) parts.push(out.length + ' épuisée' + (out.length > 1 ? 's' : '') + ' (' + out.slice(0, 4).map((c) => c.code).join(', ') + (out.length > 4 ? '…' : '') + ')');
+    if (few.length) parts.push(few.slice(0, 4).map((c) => c.code + ' : ' + c.stock).join(', ') + (few.length > 4 ? '…' : ''));
+    return parts.join(' · ');
+  }
+  function refreshStockSummary() {
+    const el = $('stockSummary');
+    if (el) el.textContent = stockSummary(A.project ? A.convPalette() : null);
+  }
+
+  function openStock(pal) {
+    if (!pal) return;
+    const body = document.createElement('div');
+    body.style.display = 'contents';
+    body.innerHTML =
+      '<p class="hint">Laissez vide quand vous en avez assez. Une limite ne change le rendu que si l’image demande plus de perles qu’il n’en reste : vos perles vont alors là où elles comptent le plus, et la couleur proche suivante complète.</p>' +
+      '<div class="field-inline"><input type="text" id="stockSearch" placeholder="Rechercher un code ou un nom" autocomplete="off"><button class="btn btn-sm btn-ghost" type="button" id="stockReset">Tout remettre à « assez »</button></div>' +
+      '<ul class="stock-list" id="stockList"></ul>';
+    const save = () => { A.savePalette(pal); refreshColorList(); refreshStockSummary(); };
+    function list() {
+      const q = body.querySelector('#stockSearch').value.trim().toLowerCase();
+      body.querySelector('#stockList').innerHTML = pal.colors.filter((c) => !q || c.code.toLowerCase().includes(q) || (c.name || '').toLowerCase().includes(q)).map((c) => {
+        const v = c.stock == null || c.stock === '' ? '' : String(c.stock);
+        return '<li data-id="' + c.id + '" class="' + (v === '0' ? 'out' : v ? 'few' : '') + '">' +
+          '<span class="cat-sw" style="background:' + c.hex + '"></span><b>' + esc(c.code) + '</b><span class="cat-nm">' + esc(c.name || '') + '</span>' +
+          '<input type="number" min="0" step="1" inputmode="numeric" data-f="stock" value="' + v + '" placeholder="assez" aria-label="Perles restantes de ' + esc(c.code) + '">' +
+          '<button class="btn btn-sm" type="button" data-act="out">Épuisée</button>' +
+          '<button class="icon-btn" type="button" data-act="clear" title="J’en ai assez"><svg class="ic"><use href="#i-close"/></svg></button></li>';
+      }).join('');
+    }
+    A.modal({
+      title: 'Stock restant · ' + pal.name, body,
+      actions: [{ label: 'Terminé', value: true, kind: 'primary' }],
+      onOpen: (b) => {
+        b.querySelector('#stockSearch').addEventListener('input', list);
+        b.querySelector('#stockReset').addEventListener('click', () => { pal.colors.forEach((c) => { delete c.stock; }); save(); list(); });
+        const ul = b.querySelector('#stockList');
+        ul.addEventListener('input', (e) => {
+          const li = e.target.closest('li[data-id]');
+          const c = li && pal.colors.find((x) => x.id === li.dataset.id);
+          if (!c) return;
+          const t = e.target.value.trim();
+          if (t === '') delete c.stock; else c.stock = Math.max(0, parseInt(t, 10) || 0);
+          li.className = c.stock === 0 ? 'out' : c.stock > 0 ? 'few' : '';
+          save();
+        });
+        ul.addEventListener('click', (e) => {
+          const li = e.target.closest('li[data-id]');
+          const c = li && pal.colors.find((x) => x.id === li.dataset.id);
+          const act = e.target.closest('[data-act]');
+          if (!c || !act) return;
+          if (act.dataset.act === 'out') c.stock = 0; else delete c.stock;
+          save();
+          list();
+        });
+        list();
+      },
+    });
+  }
+  panels.openStock = openStock;
+
+  // Le nom devient le code (ex. code « 30 », nom « C15 » → code « C15 ») ; le projet ouvert suit
+  async function namesAsCodes() {
+    const pal = A.currentPalette();
+    if (!pal) return;
+    const todo = pal.colors.filter((c) => (c.name || '').trim() && c.name.trim() !== c.code);
+    if (!todo.length) { A.toast('Aucune couleur n’a un nom différent de son code.'); return; }
+    const next = new Map(pal.colors.map((c) => [c.id, c.code]));
+    const refused = [];
+    todo.forEach((c) => {
+      const n = c.name.trim();
+      if (n.length > 5 || !/^[\p{L}\p{N}._-]+$/u.test(n)) refused.push(c.code + ' (« ' + n + ' » : 5 caractères max., sans espace)');
+      else next.set(c.id, n);
+    });
+    // doublons après renommage : on garde l'ancien code pour les couleurs concernées
+    const count = new Map();
+    next.forEach((v) => count.set(v.toLowerCase(), (count.get(v.toLowerCase()) || 0) + 1));
+    todo.forEach((c) => {
+      const v = next.get(c.id);
+      if (v !== c.code && count.get(v.toLowerCase()) > 1) { refused.push(c.code + ' (« ' + v + ' » est déjà pris)'); next.set(c.id, c.code); }
+    });
+    const changes = pal.colors.filter((c) => next.get(c.id) !== c.code);
+    if (!changes.length) { A.toast('Aucun nom utilisable comme code. ' + refused.slice(0, 3).join(' ; '), 'error'); return; }
+    const ex = changes.slice(0, 3).map((c) => c.code + ' → ' + next.get(c.id)).join(', ');
+    const ok = await A.confirm(changes.length + ' couleur' + (changes.length > 1 ? 's' : '') + ' vont prendre leur nom comme code (' + ex + (changes.length > 3 ? '…' : '') + '). Les noms sont conservés, et la conversion du projet ouvert est mise à jour.' + (refused.length ? ' Non modifiées : ' + refused.length + '.' : ''), 'Remplacer les codes');
+    if (!ok) return;
+    const map = new Map();
+    changes.forEach((c) => { map.set(c.code + '|' + c.hex, next.get(c.id)); c.code = next.get(c.id); });
+    A.savePalette(pal, true);
+    const r = A.project && A.project.result;
+    let upd = 0;
+    if (r) r.colors.forEach((rc) => { const k = map.get(rc.code + '|' + rc.hex); if (k) { rc.code = k; upd++; } });
+    if (upd) { A.plateCache.clear(); A.touch(); }
+    refreshColorList();
+    panels.refreshEdit();
+    A.toast(changes.length + ' code' + (changes.length > 1 ? 's' : '') + ' remplacé' + (changes.length > 1 ? 's' : '') + (upd ? ', projet mis à jour' : '') + '.' + (refused.length ? ' Non modifiées : ' + refused.slice(0, 3).join(' ; ') + (refused.length > 3 ? '…' : '') : ''));
+  }
+
   function fillPaletteSelects() {
     const opts = A.palettes.map((p) => '<option value="' + p.id + '">' + esc(p.name) + ' (' + p.colors.length + ')</option>').join('');
     const cur = A.currentPalette();
@@ -405,6 +517,7 @@
 
   panels.refreshPalette = function () {
     fillPaletteSelects();
+    if (PP.detect) { PP.detect.refreshRefSelect(); A.detect.render(); }
     const pal = A.currentPalette();
     $('paletteName').value = pal ? pal.name : '';
     refreshWB();
@@ -424,7 +537,8 @@
     }
     list.innerHTML = pal.colors.map((c) =>
       '<li data-id="' + c.id + '"' + (c.id === A.selColorId ? ' class="selected"' : '') + '>' +
-      '<span class="swatch-btn" style="background:' + c.hex + '"><input type="color" value="' + c.hex.toLowerCase() + '" aria-label="Teinte de ' + esc(c.code) + '"></span>' +
+      '<span class="swatch-btn" style="background:' + c.hex + '"><input type="color" value="' + c.hex.toLowerCase() + '" aria-label="Teinte de ' + esc(c.code) + '">' +
+      (c.stock != null && c.stock !== '' ? '<span class="stock-badge' + (+c.stock === 0 ? ' out' : '') + '" title="Stock restant">' + (+c.stock === 0 ? '0' : c.stock) + '</span>' : '') + '</span>' +
       '<input class="c-code" type="text" data-f="code" maxlength="5" value="' + esc(c.code) + '" aria-label="Code" autocomplete="off">' +
       '<input type="text" data-f="name" maxlength="40" value="' + esc(c.name) + '" placeholder="Nom" aria-label="Nom" autocomplete="off">' +
       '<input class="c-hex" type="text" data-f="hex" maxlength="7" value="' + c.hex + '" aria-label="Teinte hexadécimale" autocomplete="off" spellcheck="false">' +
@@ -486,7 +600,7 @@
     let img;
     try { img = await U.loadImageFromBlob(file); }
     catch (e) { A.toast('Impossible de lire cette photo. Essayez un fichier JPG ou PNG.', 'error'); return; }
-    const c = U.imageToCanvas(img, 4096);
+    const c = U.imageToCanvas(img, 16000, 12e6);
     pal.photo = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.93));
     pal.wb = null;
     A.sample = null;
@@ -495,7 +609,7 @@
     A.photo.palId = null;
     await ensurePhoto(true);
     panels.refreshPalette();
-    A.toast('Photo chargée. Commencez par le blanc de référence si une feuille blanche est visible.');
+    A.toast('Photo chargée. Choisissez votre nuancier puis « Détecter les couleurs », ou prélevez-les à la pipette.');
   }
 
   panels.setPalettePhoto = setPalettePhoto;
@@ -511,7 +625,7 @@
     if (!force && A.photo.palId === pal.id && A.photo.data) return;
     try {
       const img = await U.loadImageFromBlob(pal.photo);
-      const c = U.imageToCanvas(img, 4096);
+      const c = U.imageToCanvas(img, 16000, 12e6);
       const data = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height);
       A.photo = { src: c, data, palId: pal.id, display: c, lastRect: null, selRect: null };
       buildDisplay(pal);
@@ -571,8 +685,16 @@
     return n ? [r / n, g / n, b / n] : [0, 0, 0];
   }
 
+  panels.measureLin = function (rect) {
+    const g = wbGains(A.currentPalette());
+    const lin = measure(rect, 0.6, 0.08);
+    return g ? lin.map((v, i) => v * g[i]) : lin;
+  };
+  panels.rebuildPhoto = function () { buildDisplay(A.currentPalette()); refreshWB(); };
+
   panels.onPhotoRect = function (rect, pt) {
     if (!A.photo.data) return;
+    if (A.detect && A.detect.onRect(rect, pt)) return;
     if (!rect) {
       const n = Math.max(5, Math.round(Math.min(A.photo.data.width, A.photo.data.height) / 120));
       rect = { x: pt.x - n / 2, y: pt.y - n / 2, w: n, h: n };
@@ -580,7 +702,7 @@
     const pal = A.currentPalette();
     if (A.photoTool === 'white') {
       const m = measure(rect, 0.1, 0.1);
-      const T = 0.85; // la référence devient un blanc à ~237/255
+      const T = 0.92; // la feuille blanche devient un blanc à ~246/255
       const gains = m.map((v) => U.clamp(T / Math.max(v, 0.002), 0.25, 8));
       pal.wb = { gains, rect: [rect.x, rect.y, rect.w, rect.h], on: true };
       A.savePalette(pal);
@@ -592,14 +714,21 @@
       A.redraw();
       return;
     }
-    let lin = measure(rect, 0.18, 0.12);
+    // on garde la surface éclairée des perles : ni le trou, ni l'ombre entre les perles, ni les reflets
+    const lin = panels.measureLin(rect);
     const g = wbGains(pal);
-    if (g) lin = lin.map((v, i) => v * g[i]);
     const hex = U.rgbToHex(U.linToSrgb(lin[0]), U.linToSrgb(lin[1]), U.linToSrgb(lin[2]));
     A.sample = { hex, corrected: !!g };
     A.photo.lastRect = rect;
     $('sampleCode').value = A.suggestCode(pal);
     $('sampleName').value = '';
+    // avec un nuancier : on propose le code et le nom du fabricant le plus proche
+    const near = PP.detect.nearestRef(pal, hex);
+    if (near && !A.codeError(pal, near.c.code)) {
+      $('sampleCode').value = near.c.code;
+      $('sampleName').value = near.c.name || '';
+      A.sample.ref = near;
+    }
     $('sampleError').hidden = true;
     $('sampleCode').classList.remove('invalid');
     refreshSample();
@@ -684,23 +813,29 @@
       panels.refreshImage();
     });
     $('convPalette').addEventListener('change', (e) => { P().conv.paletteId = e.target.value; A.touch(); });
-    bindSeg($('convMode'), (v) => { P().conv.mode = v; A.touch(); refreshConv(); });
     $('convMax').addEventListener('input', (e) => { P().conv.maxColors = U.clamp(e.target.value | 0, 0, 999); A.touch(); });
-    $('convDither').addEventListener('input', (e) => { P().conv.dither = +e.target.value; $('convDitherOut').textContent = e.target.value + ' %'; A.touch(); });
+    $('convStep').addEventListener('change', (e) => { P().conv.step = +e.target.value; A.touch(); refreshConv(); });
+    $('convDominant').addEventListener('change', (e) => { P().conv.dominant = e.target.checked; A.touch(); refreshConv(); });
     $('convertBtn').addEventListener('click', () => A.runConversion());
+    $('autoBtn').addEventListener('click', () => A.auto.run());
+    bindSeg($('convKind'), (v) => { P().conv.kind = v; A.touch(); refreshConv(); });
+    $('stockBtn').addEventListener('click', () => openStock(A.convPalette()));
   }
 
   function refreshConv() {
     const c = P().conv;
-    setSeg($('convMode'), c.mode);
-    $('convModeHint').textContent = c.mode === 'dominant'
-      ? 'Garde la couleur la plus présente dans le carré couvert par le picot : contours nets, idéal pour les logos et les dessins.'
-      : 'Mélange les couleurs du carré couvert par le picot, puis prend la perle la plus proche : rendu doux, idéal pour les photos.';
     $('convMax').value = c.maxColors;
-    $('convDither').value = c.dither;
-    $('convDitherOut').textContent = c.dither + ' %';
-    $('convDither').disabled = c.mode === 'dominant';
-    $('ditherField').style.opacity = c.mode === 'dominant' ? 0.45 : 1;
+    $('convStep').value = String([5, 10, 20, 25].includes(c.step) ? c.step : 10);
+    $('convDominant').checked = !!c.dominant;
+    const n = A.compare.variantCount();
+    $('convertLabel').textContent = 'Conversion · comparer ' + (n + 1) + ' rendus';
+    setSeg($('convKind'), c.kind || 'auto');
+    let out = '';
+    if ((c.kind || 'auto') === 'auto' && A.imgAdj) {
+      try { out = A.auto.classify(A.imgAdj).kind === 'photo' ? '· reconnue : photo' : '· reconnue : dessin'; } catch (e) { out = ''; }
+    }
+    $('convKindOut').textContent = out;
+    refreshStockSummary();
     fillPaletteSelects();
   }
 
@@ -822,7 +957,7 @@
     $('replTo').innerHTML = all.map(opt).join('');
     if (used.includes(+fromVal)) $('replFrom').value = fromVal;
     if (toVal !== '') $('replTo').value = toVal;
-    $('editStats').textContent = U.fmtInt(u.total) + ' perles · ' + used.length + ' couleur' + (used.length > 1 ? 's' : '') + ' · ' + U.fmtInt(u.empty) + ' picot' + (u.empty > 1 ? 's' : '') + ' vide' + (u.empty > 1 ? 's' : '') + '. Palette : ' + (r.paletteName || '—') + '.';
+    $('editStats').textContent = U.fmtInt(u.total) + ' perles · ' + used.length + ' couleur' + (used.length > 1 ? 's' : '') + ' · ' + U.fmtInt(u.empty) + ' picot' + (u.empty > 1 ? 's' : '') + ' vide' + (u.empty > 1 ? 's' : '') + '. Palette : ' + (r.paletteName || '—') + (r.variant ? ' · rendu ' + A.variantLabel(r.variant).toLowerCase() : '') + '.';
     panels.syncChrome();
     panels.refreshExport();
   };
@@ -1021,6 +1156,32 @@
     }
   }
 
+
+  // =====================================================================
+  // POSE GUIDÉE (volet)
+  // =====================================================================
+  function initGuidePane() {
+    $('guideStart').addEventListener('click', () => A.guide.open($('guidePaneSelect').value));
+  }
+  panels.refreshGuidePane = function () {
+    if (!A.project) return;
+    const has = A.hasResult();
+    $('guideEmpty').hidden = has;
+    $('guideBody').hidden = !has;
+    if (!has) return;
+    const sel = $('guidePaneSelect');
+    const cur = sel.value || P().guide.plateId || A.sel;
+    sel.innerHTML = P().plates.map((p) => {
+      const st = P().guide.state && P().guide.state[p.id];
+      const prog = st && st.done && st.done.length ? ' · ' + st.done.length + ' couleur(s) posée(s)' : st && st.row ? ' · ligne ' + (st.row + 1) : '';
+      return '<option value="' + p.id + '">' + esc(p.name) + ' · ' + p.w + '×' + p.h + prog + '</option>';
+    }).join('');
+    if (P().plates.some((p) => p.id === cur)) sel.value = cur;
+    $('guidePaneCal').textContent = A.guide.isCalibrated()
+      ? 'Cet écran est déjà calibré. Vous pourrez affiner la taille dans la pose guidée.'
+      : 'Première fois sur cet écran : un calibrage rapide vous sera proposé (une carte bancaire suffit).';
+  };
+
   // =====================================================================
   // PROJETS
   // =====================================================================
@@ -1097,7 +1258,7 @@
       '<button class="btn btn-sm" type="button" id="setBackup"><svg class="ic"><use href="#i-export"/></svg>Exporter une sauvegarde</button>' +
       '<button class="btn btn-sm" type="button" id="setRestore"><svg class="ic"><use href="#i-upload"/></svg>Restaurer</button></div></div>' +
       '<div class="group desktop-only"><div class="group-head"><h3>Raccourcis clavier</h3></div><dl class="kbd-list">' +
-      '<dt>1 … 5</dt><dd>Changer d’étape</dd><dt>Molette · + / −</dt><dd>Zoomer</dd><dt>0</dt><dd>Tout afficher</dd>' +
+      '<dt>1 … 6</dt><dd>Changer d’étape</dd><dt>Molette · + / −</dt><dd>Zoomer</dd><dt>0</dt><dd>Tout afficher</dd>' +
       '<dt>Espace + glisser</dt><dd>Déplacer la vue (ou clic droit / molette enfoncée)</dd>' +
       '<dt>Flèches (Maj : ×10)</dt><dd>Déplacer la plaque ou l’image sélectionnée</dd><dt>Suppr</dt><dd>Supprimer la plaque sélectionnée</dd>' +
       '<dt>R · Maj+R</dt><dd>Pivoter l’image</dd><dt>F · Maj+F</dt><dd>Miroir de l’image</dd>' +
