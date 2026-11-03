@@ -710,3 +710,40 @@ kbd { font-family: var(--f-mono); font-size: 0.85em; padding: 1px 5px; border: 1
 .guide-open .toasts { left: 14px; transform: none; width: min(292px, 80vw); }
 .guide-open.guide-right .toasts { left: auto; right: 14px; }
 .guide-open.ui-mobile .toasts { top: auto; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }
+
+/* ================= Pose guidée v2 ================= */
+.guide-panel { width: min(300px, 86vw); }
+.gp-head .btn { margin-left: auto; height: 34px; }
+.gp-head h2 { margin-right: 0; }
+.guide-mini {
+  position: absolute; z-index: 3; left: 0; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 8px max(6px, env(safe-area-inset-left, 0px)) 8px 6px;
+  background: var(--g-panel); border: 1px solid var(--g-line); border-left: 0; border-radius: 0 14px 14px 0;
+}
+.gm-btn {
+  width: 48px; height: 48px; display: grid; place-items: center;
+  border: 1px solid var(--g-line); border-radius: 12px; background: var(--g-panel-2); color: var(--g-ink); cursor: pointer;
+}
+.gm-btn .ic { width: 24px; height: 24px; }
+.gm-btn.on { background: #3B2A12; border-color: #B7791F; color: #FFD28A; }
+.gm-done { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.gm-sw {
+  width: 48px; min-height: 30px; border-radius: 8px; display: grid; place-items: center; padding: 2px;
+  font-family: var(--f-mono); font-size: 12px; font-weight: 700; color: var(--g-ink); text-align: center; word-break: break-all;
+}
+.gp-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-sm); color: var(--g-ink); }
+.gp-steps li::marker { font-family: var(--f-mono); font-weight: 700; color: #7BE3A0; }
+.c-green { color: #3CE07A; } .c-yellow { color: #FFD23C; } .c-blue { color: #6FB8FF; }
+.gp-nav2 { grid-template-columns: 52px 1fr !important; }
+.gp-inline { display: inline-flex; align-items: center; gap: 6px; }
+.gp-inline select { width: auto; height: 30px; }
+.gp-adjust { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; }
+.gp-pad { display: grid; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 46px); gap: 4px; }
+.gp-pad .btn { padding: 0; height: 46px; font-size: 20px; }
+.gp-pad .gp-step { font-size: 11px; font-family: var(--f-mono); }
+.gp-scale { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+.gp-scale .btn { height: 34px; font-family: var(--f-mono); }
+.gp-scale span { text-align: center; font-family: var(--f-mono); font-size: var(--fs-xs); color: var(--g-ink-2); }
+.guide-panel .btn:disabled { opacity: 0.35; }
+.gp-lock { margin-bottom: 4px; }

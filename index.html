@@ -403,7 +403,7 @@
     <section class="pane" data-pane="guide" hidden>
       <div class="pane-head">
         <h2>Pose guidée</h2>
-        <p class="lede">Posez la plaque transparente directement sur l’écran de la tablette : l’écran devient le modèle, à taille réelle, couleur par couleur ou ligne par ligne.</p>
+        <p class="lede">Posez la plaque transparente sur l’écran de la tablette : l’écran devient le modèle, à taille réelle. Ou posez la tablette à côté et suivez le modèle bloc par bloc.</p>
       </div>
       <div class="empty-note" id="guideEmpty">Lancez d’abord la <b>Conversion</b> depuis l’onglet Image.</div>
       <div id="guideBody">
@@ -415,10 +415,10 @@
         <div class="group">
           <div class="group-head"><h3>Comment ça marche</h3></div>
           <ol class="steps">
-            <li>Calibrez une fois l’écran avec une carte bancaire, puis avec la plaque elle-même.</li>
-            <li>Posez la plaque : le liseré blanc doit dépasser régulièrement tout autour.</li>
-            <li>Verrouillez l’écran pour que vos doigts et la pince ne déplacent rien.</li>
-            <li>Posez les perles de la couleur en surbrillance, puis passez à la suivante.</li>
+            <li>Posez la plaque dans le coin éclairé (en haut à droite), en butée contre la coque.</li>
+            <li>La première fois : « Caler l’écran », deux cercles à amener sous deux picots.</li>
+            <li>« Placer le motif » sur les picots que vous voulez utiliser.</li>
+            <li>Verrouillez le tactile, réduisez le menu, et posez les perles couleur par couleur, ligne par ligne ou bloc par bloc.</li>
           </ol>
           <p class="hint">Votre avancement (couleurs posées, ligne en cours) est enregistré avec le projet.</p>
         </div>
@@ -489,27 +489,45 @@
 </div>
 
 <div class="guide" id="guide" hidden>
-  <canvas id="guideCanvas" aria-label="Modèle à taille réelle"></canvas>
-  <button class="guide-lockbadge" id="guideLockBadge" type="button" hidden><svg class="ic"><use href="#i-lock"/></svg>Verrouillé</button>
-  <button class="guide-show" id="guideShow" type="button" hidden aria-label="Afficher le panneau"><svg class="ic"><use href="#i-panel"/></svg></button>
+  <canvas id="guideCanvas" aria-label="Modèle de pose"></canvas>
+  <div class="guide-mini" id="gMini" hidden>
+    <button class="gm-btn" id="gMiniMenu" type="button" title="Ouvrir le menu"><svg class="ic"><use href="#i-panel"/></svg></button>
+    <button class="gm-btn" id="gMiniLock" type="button" title="Verrouiller le tactile"><svg class="ic"><use href="#i-unlock"/></svg></button>
+    <span class="gm-sw" id="gMiniSw"></span>
+    <button class="gm-btn" id="gMiniPrev" type="button" title="Précédent"><svg class="ic"><use href="#i-left"/></svg></button>
+    <button class="gm-btn" id="gMiniNext" type="button" title="Suivant"><svg class="ic"><use href="#i-right"/></svg></button>
+    <button class="gm-btn gm-done" id="gMiniDone" type="button" title="Marquer posé"><svg class="ic"><use href="#i-check"/></svg></button>
+  </div>
   <aside class="guide-panel" id="guidePanel">
     <div class="gp-head">
       <h2>Pose guidée</h2>
-      <button class="icon-btn" id="guideHide" type="button" title="Masquer le panneau"><svg class="ic"><use href="#i-panel"/></svg></button>
+      <button class="btn btn-sm" id="gCollapse" type="button" title="Réduire le menu pour laisser de la place aux doigts"><svg class="ic"><use href="#i-left"/></svg>Réduire</button>
       <button class="icon-btn" id="guideClose" type="button" title="Quitter (Échap)"><svg class="ic"><use href="#i-close"/></svg></button>
     </div>
     <div class="gp-sec">
-      <select id="guidePlate" aria-label="Plaque"></select>
+      <div class="seg" id="gView" role="radiogroup"><button type="button" data-v="screen">Sur l’écran</button><button type="button" data-v="side">À côté</button></div>
+      <select id="guidePlate" aria-label="Plaque du projet"></select>
     </div>
     <div class="gp-sec gp-calib" id="gCalibBox" hidden>
-      <h3 id="gCalTitle"></h3>
-      <p id="gCalText"></p>
-      <div class="gp-row"><button class="btn btn-sm btn-ghost" id="gCalSkip" type="button">Passer</button><button class="btn btn-sm btn-primary" id="gCalOk" type="button">Valider</button></div>
+      <h3>Caler l’écran sur la plaque</h3>
+      <ol class="gp-steps">
+        <li>Choisissez ci-dessous la plaque que vous posez, puis posez-la dans le <b>coin éclairé</b>, en butée contre la coque si elle dépasse.</li>
+        <li>Avec les flèches, amenez le <b class="c-green">cercle vert</b> sous le picot du coin.</li>
+        <li>Avec <b>+</b> et <b>−</b>, amenez le <b class="c-yellow">cercle jaune</b> sous le dernier picot de la rangée.</li>
+        <li>Vérifiez que le <b class="c-blue">cercle bleu</b> tombe sous le dernier picot de la colonne, puis validez.</li>
+      </ol>
+      <div class="gp-row"><button class="btn btn-sm btn-ghost" id="gCalCancel" type="button">Annuler</button><button class="btn btn-sm btn-primary" id="gCalOk" type="button">Valider</button></div>
+    </div>
+    <div class="gp-sec gp-calib" id="gPlaceBox" hidden>
+      <h3>Placer le motif sur la plaque</h3>
+      <p>Les petits points gris sont les picots libres. Déplacez le motif avec les flèches, d’un picot à la fois, ou faites-le glisser.</p>
+      <p class="gp-small" id="gPlaceInfo"></p>
+      <div class="gp-row"><button class="btn btn-sm btn-ghost" id="gPlaceCenter" type="button">Centrer</button><button class="btn btn-sm btn-primary" id="gPlaceOk" type="button">Valider</button></div>
     </div>
     <div id="gMainBox">
       <div class="gp-sec">
         <div class="seg" id="guideMode" role="radiogroup">
-          <button type="button" data-v="color">Couleur par couleur</button><button type="button" data-v="row">Ligne par ligne</button><button type="button" data-v="all">Tout</button>
+          <button type="button" data-v="color">Couleur</button><button type="button" data-v="row">Ligne</button><button type="button" data-v="block">Bloc</button><button type="button" data-v="all">Tout</button>
         </div>
       </div>
       <div class="gp-sec" id="guideColorBox">
@@ -524,46 +542,69 @@
       </div>
       <div class="gp-sec" id="guideRowBox" hidden>
         <div class="gp-current"><div><b>Ligne <span id="gRowNum"></span></b> sur <span id="gRowTotal"></span></div></div>
-        <div class="gp-nav">
+        <div class="gp-nav gp-nav2">
           <button class="btn" id="gRowPrev" type="button" aria-label="Ligne précédente"><svg class="ic"><use href="#i-left"/></svg></button>
           <button class="btn btn-primary gp-done" id="gRowNext" type="button"><span>Ligne suivante</span><svg class="ic"><use href="#i-right"/></svg></button>
         </div>
         <div class="gp-rowcolors" id="gRowColors"></div>
       </div>
-      <div class="gp-sec">
-        <h3>Affichage</h3>
-        <div class="seg" id="gOthers" role="radiogroup"><button type="button" data-v="dim">Autres perles atténuées</button><button type="button" data-v="hide">Masquées</button></div>
-        <label class="check"><input type="checkbox" id="gCodes"><span>Écrire le libellé dans les perles</span></label>
-        <div class="field"><span class="label">Libellé des perles</span>
-          <div class="seg" id="gLabel" role="radiogroup"><button type="button" data-v="auto" title="Le nom quand c'est une référence (C15), sinon le code">Automatique</button><button type="button" data-v="name">Nom</button><button type="button" data-v="code">Code</button></div>
+      <div class="gp-sec" id="guideBlockBox" hidden>
+        <div class="gp-current"><div><b id="gBlockName"></b><br><span class="gp-small" id="gBlockInfo"></span></div></div>
+        <div class="gp-nav">
+          <button class="btn" id="gBlockPrev" type="button" aria-label="Bloc précédent"><svg class="ic"><use href="#i-left"/></svg></button>
+          <button class="btn btn-primary gp-done" id="gBlockDone" type="button"><svg class="ic"><use href="#i-check"/></svg><span>Bloc posé</span></button>
+          <button class="btn" id="gBlockNext" type="button" aria-label="Bloc suivant"><svg class="ic"><use href="#i-right"/></svg></button>
         </div>
-        <label class="field"><span class="label">Luminosité <output id="gBrightOut"></output></span><input type="range" id="gBright" min="30" max="100" value="100"></label>
+        <div class="gp-row"><span class="gp-small" id="gBlockProgress"></span>
+          <label class="gp-inline"><span class="gp-small">Bloc de</span><select id="gBlockSize"><option value="8">8 × 8</option><option value="10">10 × 10</option><option value="13">13 × 13</option><option value="16">16 × 16</option></select></label>
+        </div>
+        <p class="gp-small">Légende du bloc : touchez une couleur pour la faire ressortir.</p>
+        <ul class="gp-colors" id="gBlockList"></ul>
       </div>
     </div>
-    <div class="gp-sec">
-      <h3>Taille à l’écran</h3>
-      <div class="gp-size">
-        <button class="btn btn-sm" id="gSizeMM" type="button" title="Réduire de 2 %">−−</button>
-        <button class="btn btn-sm" id="gSizeM" type="button" title="Réduire de 0,2 %">−</button>
-        <span id="gSizeVal"></span>
-        <button class="btn btn-sm" id="gSizeP" type="button" title="Agrandir de 0,2 %">+</button>
-        <button class="btn btn-sm" id="gSizePP" type="button" title="Agrandir de 2 %">++</button>
+    <div class="gp-sec" id="gPlateSec">
+      <h3>Plaque posée</h3>
+      <select id="gModel" aria-label="Modèle de la plaque posée"></select>
+      <div class="field"><span class="label">Coin de départ</span>
+        <div class="seg" id="gCorner" role="radiogroup"><button type="button" data-v="tl" title="Haut gauche">↖</button><button type="button" data-v="tr" title="Haut droit">↗</button><button type="button" data-v="bl" title="Bas gauche">↙</button><button type="button" data-v="br" title="Bas droit">↘</button></div>
       </div>
-      <p class="gp-small" id="gCalState"></p>
+      <label class="check"><input type="checkbox" id="gCornerLight"><span>Éclairer le coin</span></label>
       <div class="gp-row gp-wrap">
-        <button class="btn btn-sm" id="gCalib" type="button">Calibrer l’écran</button>
-        <button class="btn btn-sm" id="gCalibPlate" type="button">Caler sur la plaque</button>
-        <button class="btn btn-sm" id="gCenter" type="button">Recentrer</button>
+        <button class="btn btn-sm" id="gCalib" type="button">Caler l’écran</button>
+        <button class="btn btn-sm" id="gPlace" type="button">Placer le motif</button>
         <button class="btn btn-sm" id="gRotate" type="button"><svg class="ic"><use href="#i-rotr"/></svg>Pivoter</button>
       </div>
-      <label class="field"><span class="label">Écart entre la grille et le cadre blanc (mm)</span><input type="number" id="gRim" min="0" max="15" step="0.1" inputmode="decimal"></label>
+      <p class="gp-small" id="gCalState"></p>
+    </div>
+    <div class="gp-sec" id="gMoveSec">
+      <h3 id="gMoveTitle">Ajuster la grille</h3>
+      <div class="gp-adjust">
+        <div class="gp-pad">
+          <span></span><button class="btn" id="gUp" type="button" aria-label="Haut">↑</button><span></span>
+          <button class="btn" id="gLeftB" type="button" aria-label="Gauche">←</button><button class="btn gp-step" id="gStep" type="button" title="Pas du déplacement">fin</button><button class="btn" id="gRightB" type="button" aria-label="Droite">→</button>
+          <span></span><button class="btn" id="gDown" type="button" aria-label="Bas">↓</button><span></span>
+        </div>
+        <div class="gp-scale">
+          <button class="btn btn-sm" id="gSizePP" type="button" title="Agrandir de 1 %">++</button>
+          <button class="btn btn-sm" id="gSizeP" type="button" title="Agrandir de 0,1 %">+</button>
+          <span id="gSizeVal"></span>
+          <button class="btn btn-sm" id="gSizeM" type="button" title="Réduire de 0,1 %">−</button>
+          <button class="btn btn-sm" id="gSizeMM" type="button" title="Réduire de 1 %">−−</button>
+        </div>
+      </div>
     </div>
     <div class="gp-sec">
-      <button class="btn gp-lock" id="gLock" type="button"><svg class="ic"><use href="#i-unlock"/></svg><span>Verrouiller l’écran</span></button>
-      <div class="gp-row gp-wrap">
-        <button class="btn btn-sm" id="gSide" type="button"><svg class="ic"><use href="#i-panel"/></svg><span>Panneau à droite</span></button>
-        <button class="btn btn-sm" id="gFull" type="button"><svg class="ic"><use href="#i-full"/></svg>Plein écran</button>
+      <h3>Affichage</h3>
+      <div class="seg" id="gOthers" role="radiogroup"><button type="button" data-v="dim">Autres perles atténuées</button><button type="button" data-v="hide">Masquées</button></div>
+      <div class="field"><span class="label">Libellé des perles</span>
+        <div class="seg" id="gLabel" role="radiogroup"><button type="button" data-v="auto" title="Le nom quand c'est une référence (C15), sinon le code">Automatique</button><button type="button" data-v="name">Nom</button><button type="button" data-v="code">Code</button></div>
       </div>
+      <label class="check"><input type="checkbox" id="gCodes"><span>Écrire le libellé dans les perles</span></label>
+      <label class="field"><span class="label">Luminosité <output id="gBrightOut"></output></span><input type="range" id="gBright" min="30" max="100" value="100"></label>
+    </div>
+    <div class="gp-sec">
+      <button class="btn gp-lock" id="gLock" type="button"><svg class="ic"><use href="#i-unlock"/></svg><span>Verrouiller le tactile</span></button>
+      <button class="btn btn-sm" id="gFull" type="button"><svg class="ic"><use href="#i-full"/></svg>Plein écran</button>
     </div>
   </aside>
 </div>
