@@ -266,9 +266,11 @@
 
   /** Partage (feuille de partage du système) si possible, sinon enregistrement classique. */
   async function shareFile(filename, blob, title) {
+    let embedded = false;
+    try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
     try {
       const file = new File([blob], filename, { type: blob.type });
-      if (navigator.canShare && navigator.share && navigator.canShare({ files: [file] })) {
+      if (!embedded && navigator.canShare && navigator.share && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: title || filename });
         return 'shared';
       }

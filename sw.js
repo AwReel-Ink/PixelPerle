@@ -1,10 +1,16 @@
 /* Pixel Perles — service worker : l'application fonctionne hors ligne une fois installée */
-const VERSION = 'pixel-perles-v2.6.0';
+const VERSION = 'pixel-perles-v3.0.0';
 const FONT_CACHE = 'pixel-perles-fonts';
 const ASSETS = [
   './',
   'index.html',
   'css/app.css',
+  'manifest.webmanifest',
+  'icons/icon.svg',
+  'icons/icon-192.png',
+  'icons/icon-512.png',
+  'icons/icon-maskable-512.png',
+
   'js/util.js',
   'js/db.js',
   'js/files.js',
@@ -12,20 +18,21 @@ const ASSETS = [
   'js/render.js',
   'js/catalogs.js',
   'js/gridview.js',
-  'js/app-core.js',
-  'js/app-stage.js',
-  'js/app-panels.js',
+  'js/core.js',
+  'js/projects.js',
+  'js/stage.js',
+  'js/ui.js',
+  'js/pane-plates.js',
+  'js/pane-image.js',
+  'js/pane-edit.js',
+  'js/pane-palette.js',
+  'js/pane-export.js',
   'js/auto.js',
   'js/reduce.js',
   'js/compare.js',
   'js/guide.js',
   'js/detect.js',
-  'js/app-main.js',
-  'manifest.webmanifest',
-  'icons/icon.svg',
-  'icons/icon-192.png',
-  'icons/icon-512.png',
-  'icons/icon-maskable-512.png',
+  'js/main.js',
 ];
 
 self.addEventListener('install', (event) => {

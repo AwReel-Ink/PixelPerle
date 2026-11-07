@@ -169,7 +169,7 @@
     const pal = A.checkConvertible();
     if (!pal) return;
     A.busy = true;
-    const btn = $('autoBtn');
+    const btn = $('autoBtn') || { disabled: false };
     btn.disabled = true;
     $('convertBtn').disabled = true;
     A.panels.setProgress('convProgress', 0);

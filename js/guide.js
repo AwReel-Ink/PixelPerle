@@ -1,4 +1,4 @@
-/* Pixel Perles — Pose guidée.
+/* Pixel Perles v3 — Pose guidée.
    « Sur l'écran » : la plaque transparente est posée sur la tablette, ancrée dans un coin éclairé ; l'écran montre
    les perles à taille réelle sous les picots. Calage en une étape (deux cercles sous deux picots), mémorisé par écran
    et par modèle de plaque ; le motif se place librement sur les picots de la plaque.
@@ -33,7 +33,7 @@
     return (minSide >= 600 ? 132 : 163) / 25.4;
   }
   function models() {
-    const list = A.PRESETS.filter((p) => p.id !== 'custom').map((p) => ({ key: p.id, label: p.label, w: p.w, h: p.h, pitch: p.pitch }));
+    const list = A.plateModels().map((p) => ({ key: p.id, label: p.label, w: p.w, h: p.h, pitch: p.pitch }));
     const pl = plate();
     if (pl && !list.some((m) => m.w === pl.w && m.h === pl.h)) {
       list.push({ key: 'custom:' + pl.w + 'x' + pl.h, label: 'Plaque ' + pl.w + ' × ' + pl.h + ' (comme le motif)', w: pl.w, h: pl.h, pitch: pl.pitch || 2.6 });
@@ -135,40 +135,84 @@
   }
 
   // ---------- Ouverture ----------
-  G.open = function (plateId) {
-    if (!A.hasResult()) { A.toast('Lancez d’abord la conversion.', 'error'); return; }
+  // ---------- Entrée dans l'étape, mode « sur l'écran » (bêta) ----------
+  const isScreen = () => !!st && gs().view === 'screen';
+  // l'étape Pose guidée s'ouvre toujours sur la pose « à côté », dans l'application
+  G.enter = function () {
+    const ok = A.hasResult();
+    $('guideEmpty').hidden = ok;
+    if (!ok) { G.leave(); return; }
     canvas = $('guideCanvas');
     ctx = canvas.getContext('2d');
     const g = gs();
-    if (!g.view) g.view = 'screen';
-    if (!g.mode || !['color', 'row', 'block', 'all'].includes(g.mode)) g.mode = 'color';
-    st = { plateId: plateId || g.plateId || P().plates[0].id, locked: false, panel: true, calib: false, placing: false, fine: true, highlight: null, zoom: { s: 1, x: 0, y: 0 }, legScroll: 0 };
+    g.view = 'side';
+    if (!g.mode || !['block', 'all'].includes(g.mode)) g.mode = 'block';
+    const pid = g.plateId && A.plateById(g.plateId) ? g.plateId : P().plates[0].id;
+    st = { plateId: pid, locked: false, panel: true, calib: false, placing: false, fine: true, highlight: null, zoom: { s: 1, x: 0, y: 0 }, legScroll: 0 };
     g.plateId = st.plateId;
+    $('guideSlot').appendChild($('guidePanel'));
+    $('guide').classList.remove('full');
+    $('guidePanel').classList.remove('is-screen');
+    $('guidePanel').hidden = false;
+    $('gMini').hidden = true;
     $('guide').hidden = false;
-    document.documentElement.classList.add('guide-open');
-    $('toasts').innerHTML = '';
     document.addEventListener('keydown', onKey, true);
     document.addEventListener('visibilitychange', onVis);
     requestWake();
-    showPanel(true);
     resize();
     refreshPanel();
-    if (g.view === 'screen' && !cal().calibrated) startCalib();
   };
-
-  G.close = function () {
+  G.leave = function () {
+    $('guide').hidden = true;
+    $('guide').classList.remove('full');
+    document.documentElement.classList.remove('guide-open');
     if (!st) return;
     st = null;
-    $('guide').hidden = true;
-    document.documentElement.classList.remove('guide-open');
     document.removeEventListener('keydown', onKey, true);
     document.removeEventListener('visibilitychange', onVis);
     releaseWake();
     if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
     A.saveSettings();
-    A.touch();
-    if (A.panels) A.panels.refreshGuidePane();
+    A.saveProject();
   };
+  G.resize = () => resize();
+  G.refresh = () => { if (st) refreshPanel(); };
+
+  // pose sur l'écran : plein écran noir, plaque transparente posée sur la tablette
+  G.openScreen = function () {
+    if (!st) return;
+    gs().view = 'screen';
+    if (!['color', 'row', 'block', 'all'].includes(gs().mode)) gs().mode = 'color';
+    $('guide').classList.add('full');
+    $('guide').insertBefore($('guidePanel'), $('gZoom'));
+    $('guidePanel').classList.add('is-screen');
+    document.documentElement.classList.add('guide-open');
+    $('toasts').innerHTML = '';
+    st.calib = false; st.placing = false; st.highlight = null;
+    showPanel(true);
+    resize();
+    refreshPanel();
+    if (!cal().calibrated) startCalib();
+  };
+  G.closeScreen = function () {
+    if (!st) return;
+    gs().view = 'side';
+    if (!['block', 'all'].includes(gs().mode)) gs().mode = 'block';
+    st.calib = false; st.placing = false; st.locked = false; st.highlight = null;
+    $('guide').classList.remove('full');
+    $('guidePanel').classList.remove('is-screen');
+    $('guideSlot').appendChild($('guidePanel'));
+    $('guidePanel').hidden = false;
+    $('gMini').hidden = true;
+    document.documentElement.classList.remove('guide-open');
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    A.saveSettings();
+    A.saveProject();
+    requestAnimationFrame(() => { resize(); refreshPanel(); });
+  };
+  // compatibilité : l'ancienne entrée ouvre l'étape
+  G.open = function (plateId) { if (plateId) gs().plateId = plateId; A.setTab('guide'); };
+  G.close = function () { if (isScreen()) G.closeScreen(); };
 
   async function requestWake() {
     try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { wakeLock = null; }
@@ -187,6 +231,7 @@
   }
 
   function showPanel(open) {
+    if (!isScreen()) open = true;
     st.panel = open;
     $('guidePanel').hidden = !open;
     $('gMini').hidden = open;
@@ -196,6 +241,7 @@
 
   // zone libre : l'écran moins le menu (ou la barre réduite), à gauche
   function freeArea() {
+    if (!isScreen()) return { x: 0, y: 0, w: W, h: H };
     const el = st.panel ? $('guidePanel') : $('gMini');
     const w = el.hidden ? 0 : el.getBoundingClientRect().right;
     return { x: w, y: 0, w: Math.max(50, W - w), h: H };
@@ -694,10 +740,8 @@
     if (side && (g.mode === 'color' || g.mode === 'row')) g.mode = 'block';
     $('guidePlate').innerHTML = P().plates.map((x, k) => '<option value="' + x.id + '">' + esc(x.name) + ' · ' + x.w + '×' + x.h + (P().plates.length > 1 ? ' (' + (k + 1) + '/' + P().plates.length + ')' : '') + '</option>').join('');
     $('guidePlate').value = p.id;
-    setSeg($('gView'), g.view);
     setSeg($('guideMode'), g.mode);
-    $('guideMode').querySelector('[data-v=color]').hidden = side;
-    $('guideMode').querySelector('[data-v=row]').hidden = side;
+    $('gLegendBox').hidden = !(g.mode === 'block' || g.mode === 'all') || st.calib || st.placing;
     setSeg($('gOthers'), g.others || 'dim');
     $('gOthersHint').textContent = side
       ? 'S’applique quand une couleur est touchée dans la légende, et aux couleurs marquées finies.'
@@ -941,8 +985,10 @@
       if (e.key === 'Escape') t.blur();
       return;
     }
+    if (A.tab !== 'guide') return;
+    if (!isScreen() && (/^[1-6]$/.test(e.key) || e.ctrlKey || e.metaKey)) return; // raccourcis de l'application
     e.stopPropagation();
-    if (e.key === 'Escape') { e.preventDefault(); if (st.calib || st.placing) { st.calib = false; st.placing = false; refreshPanel(); } else G.close(); return; }
+    if (e.key === 'Escape') { if (!isScreen()) return; e.preventDefault(); if (st.calib || st.placing) { st.calib = false; st.placing = false; refreshPanel(); } else G.closeScreen(); return; }
     const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
     if (arrows[e.key] && (st.calib || st.placing)) { e.preventDefault(); nudge(...arrows[e.key]); return; }
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); stepItem(1); }
@@ -950,12 +996,15 @@
     else if (e.key === ' ' || e.key === 'Enter') { if (t && t.tagName === 'BUTTON') return; e.preventDefault(); toggleDone(); }
     else if (e.key === '+' || e.key === '=') sizeBy(1.001);
     else if (e.key === '-') sizeBy(1 / 1.001);
-    else if (e.key.toLowerCase() === 'l') setLock(!st.locked);
-    else if (e.key.toLowerCase() === 'm') showPanel(!st.panel);
+    else if (e.key.toLowerCase() === 'l' && isScreen()) setLock(!st.locked);
+    else if (e.key.toLowerCase() === 'm' && isScreen()) showPanel(!st.panel);
   }
 
 
   // ---------- Gestes du mode « à côté » ----------
+  // coordonnées dans le canvas (il n'occupe pas tout l'écran dans l'application)
+  const ex = (e) => e.clientX - canvas.getBoundingClientRect().left;
+  const ey = (e) => e.clientY - canvas.getBoundingClientRect().top;
   const inRect = (x, y, r) => r && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
   function zoomSide(f, px, py) {
     const GA = st.gridArea;
@@ -974,7 +1023,7 @@
   let lastGridTap = null;
   function sideDown(e) {
     canvas.setPointerCapture(e.pointerId);
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    pointers.set(e.pointerId, { x: ex(e), y: ey(e) });
     const z = st.zoom;
     if (pointers.size === 2 && !st.locked) {
       const [a, b] = Array.from(pointers.values());
@@ -983,15 +1032,15 @@
     }
     if (pointers.size > 1) return;
     const la = st.legArea;
-    const h = hits.find((r) => inRect(e.clientX, e.clientY, r));
-    if (h && h.type === 'sort') { gest = { type: 'tap', hit: h, sx: e.clientX, sy: e.clientY }; return; }
-    if (inRect(e.clientX, e.clientY, la)) { gest = { type: 'leg', hit: h, sx: e.clientX, sy: e.clientY, s0: st.legScroll || 0, moved: false }; return; }
+    const h = hits.find((r) => inRect(ex(e), ey(e), r));
+    if (h && h.type === 'sort') { gest = { type: 'tap', hit: h, sx: ex(e), sy: ey(e) }; return; }
+    if (inRect(ex(e), ey(e), la)) { gest = { type: 'leg', hit: h, sx: ex(e), sy: ey(e), s0: st.legScroll || 0, moved: false }; return; }
     if (st.locked) { gest = null; return; }
-    gest = { type: z.s > 1.01 ? 'span' : 'swipe', sx: e.clientX, sy: e.clientY, x0: z.x, y0: z.y, moved: false, inGrid: inRect(e.clientX, e.clientY, st.gridArea) };
+    gest = { type: z.s > 1.01 ? 'span' : 'swipe', sx: ex(e), sy: ey(e), x0: z.x, y0: z.y, moved: false, inGrid: inRect(ex(e), ey(e), st.gridArea) };
   }
   function sideMove(e) {
     if (!pointers.has(e.pointerId)) return;
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    pointers.set(e.pointerId, { x: ex(e), y: ey(e) });
     if (gest.type === 'spinch' && pointers.size >= 2) {
       const [a, b] = Array.from(pointers.values());
       const f = (Math.hypot(a.x - b.x, a.y - b.y) || 1) / gest.d0;
@@ -999,7 +1048,7 @@
       gest.last = f;
       return;
     }
-    const dx = e.clientX - gest.sx, dy = e.clientY - gest.sy;
+    const dx = ex(e) - gest.sx, dy = ey(e) - gest.sy;
     if (Math.abs(dx) + Math.abs(dy) > 8) gest.moved = true;
     if (gest.type === 'leg' && gest.moved) { st.legScroll = gest.s0 - dy; draw(); }
     else if (gest.type === 'span' && gest.moved) { st.zoom.x = gest.x0 + dx; st.zoom.y = gest.y0 + dy; draw(); }
@@ -1011,7 +1060,7 @@
     if (pointers.size) { if (g0 && g0.type === 'spinch') gest = null; return; }
     gest = null;
     if (!g0 || e.type !== 'pointerup') return;
-    const dx = e.clientX - g0.sx, dy = e.clientY - g0.sy;
+    const dx = ex(e) - g0.sx, dy = ey(e) - g0.sy;
     if (g0.type === 'tap' && Math.abs(dx) + Math.abs(dy) < 12) { if (g0.hit.type === 'sort') cycleSort(); return; }
     if (g0.type === 'leg') {
       if (!g0.moved && g0.hit && g0.hit.type === 'leg') legendTap(g0.hit.code, g0.hit.idx);
@@ -1021,12 +1070,12 @@
       if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) { stepItem(dx < 0 ? 1 : -1); return; }
     }
     // deux touchers sur la grille : zoom ×2,5 à cet endroit, ou retour à la vue entière
-    if (!g0.moved && g0.inGrid !== false && inRect(e.clientX, e.clientY, st.gridArea)) {
+    if (!g0.moved && g0.inGrid !== false && inRect(ex(e), ey(e), st.gridArea)) {
       const now = performance.now();
-      if (lastGridTap && now - lastGridTap.t < 380 && Math.hypot(e.clientX - lastGridTap.x, e.clientY - lastGridTap.y) < 40) {
+      if (lastGridTap && now - lastGridTap.t < 380 && Math.hypot(ex(e) - lastGridTap.x, ey(e) - lastGridTap.y) < 40) {
         lastGridTap = null;
-        if (st.zoom.s > 1.01) { st.zoom = { s: 1, x: 0, y: 0 }; draw(); } else zoomSide(2.5, e.clientX, e.clientY);
-      } else lastGridTap = { t: now, x: e.clientX, y: e.clientY };
+        if (st.zoom.s > 1.01) { st.zoom = { s: 1, x: 0, y: 0 }; draw(); } else zoomSide(2.5, ex(e), ey(e));
+      } else lastGridTap = { t: now, x: ex(e), y: ey(e) };
     }
   }
 
@@ -1043,28 +1092,28 @@
       if (gs().view === 'side') { sideDown(e); return; }
       if (st.locked) return;
       canvas.setPointerCapture(e.pointerId);
-      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      pointers.set(e.pointerId, { x: ex(e), y: ey(e) });
       if (pointers.size === 2) {
         const [a, b] = Array.from(pointers.values());
         gest = { type: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, last: 1 };
       } else if (pointers.size === 1) {
         const c = cal();
         const pl = placement(plate(), model());
-        gest = { type: 'pan', sx: e.clientX, sy: e.clientY, offX: c.offX, offY: c.offY, pi: pl.i, pj: pl.j };
+        gest = { type: 'pan', sx: ex(e), sy: ey(e), offX: c.offX, offY: c.offY, pi: pl.i, pj: pl.j };
       }
     });
     canvas.addEventListener('pointermove', (e) => {
       if (!st || !gest) return;
       if (gs().view === 'side') { sideMove(e); return; }
       if (!pointers.has(e.pointerId)) return;
-      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      pointers.set(e.pointerId, { x: ex(e), y: ey(e) });
       if (gest.type === 'pinch' && pointers.size >= 2) {
         const [a, b] = Array.from(pointers.values());
         const f = (Math.hypot(a.x - b.x, a.y - b.y) || 1) / gest.d0;
         sizeBy(f / gest.last);
         gest.last = f;
       } else if (gest.type === 'pan') {
-        const dx = e.clientX - gest.sx, dy = e.clientY - gest.sy;
+        const dx = ex(e) - gest.sx, dy = ey(e) - gest.sy;
         const c = cal();
         if (st.placing) {
           // glisser le motif : il avance d'un picot à la fois
@@ -1090,8 +1139,8 @@
       if (st && gs().view === 'side') {
         e.preventDefault();
         const la = st.legArea;
-        if (la && inRect(e.clientX, e.clientY, la)) { st.legScroll = (st.legScroll || 0) + e.deltaY; draw(); return; }
-        if (st.gridArea && inRect(e.clientX, e.clientY, st.gridArea)) zoomSide(Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
+        if (la && inRect(ex(e), ey(e), la)) { st.legScroll = (st.legScroll || 0) + e.deltaY; draw(); return; }
+        if (st.gridArea && inRect(ex(e), ey(e), st.gridArea)) zoomSide(Math.exp(-e.deltaY * 0.002), ex(e), ey(e));
         return;
       }
       if (!st || st.locked) return;
@@ -1100,7 +1149,13 @@
     }, { passive: false });
 
     const seg = (id, fn) => $(id).addEventListener('click', (e) => { const b = e.target.closest('button[data-v]'); if (b) fn(b.dataset.v); });
-    $('guideClose').addEventListener('click', () => G.close());
+    $('guideClose').addEventListener('click', () => G.closeScreen());
+    $('gScreenOpen').addEventListener('click', () => G.openScreen());
+    $('gResetSide').addEventListener('click', async () => {
+      if (!(await A.confirm('Effacer l’avancement de cette plaque (blocs posés, couleurs finies) ?', 'Recommencer', true))) return;
+      const ps = plateState(plate().id); ps.blocksDone = []; ps.block = 0; ps.legendDone = {}; ps.done = []; ps.row = 0;
+      resetSideView(); A.saveProject(); refreshPanel();
+    });
     $('gCollapse').addEventListener('click', () => showPanel(false));
     $('gMiniMenu').addEventListener('click', () => showPanel(true));
     $('gMiniLock').addEventListener('click', () => setLock(!st.locked));
@@ -1108,7 +1163,6 @@
     $('gMiniNext').addEventListener('click', () => stepItem(1));
     $('gMiniDone').addEventListener('click', toggleDone);
     $('guidePlate').addEventListener('change', (e) => { st.plateId = e.target.value; gs().plateId = st.plateId; st.highlight = null; resetSideView(); refreshPanel(); });
-    seg('gView', (v) => { gs().view = v; st.calib = false; st.placing = false; st.highlight = null; A.saveProject(); refreshPanel(); if (v === 'screen' && !cal().calibrated) startCalib(); });
     seg('guideMode', (v) => { gs().mode = v; st.highlight = null; resetSideView(); A.saveProject(); refreshPanel(); });
     seg('gOthers', (v) => { gs().others = v; refreshPanel(); });
     seg('gLabel', (v) => { gs().label = v; A.saveProject(); refreshPanel(); });
@@ -1129,8 +1183,7 @@
     $('gZoomIn').addEventListener('click', () => zoomSide(1.4));
     $('gZoomOut').addEventListener('click', () => zoomSide(1 / 1.4));
     $('gZoomFit').addEventListener('click', () => { st.zoom = { s: 1, x: 0, y: 0 }; draw(); });
-    $('gSaveImg').addEventListener('click', () => A.saveProjectImage(false));
-    $('gShareImg').addEventListener('click', () => A.saveProjectImage(true));
+
     $('gPrev').addEventListener('click', () => stepItem(-1));
     $('gNext').addEventListener('click', () => stepItem(1));
     $('gDone').addEventListener('click', toggleDone);
@@ -1177,4 +1230,8 @@
   }
 
   initEvents();
+})();
+(function () {
+  const A = window.PP.A;
+  A.panes.guide = { refresh: () => { document.getElementById('guideEmpty').hidden = A.hasResult(); A.guide.refresh(); } };
 })();

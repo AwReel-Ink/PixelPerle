@@ -249,8 +249,8 @@
         ctx.fillRect(0, y0, width, sh);
       }
       if (y0 < M + T) {
-        text(ctx, 'Vue d’ensemble — ' + plates.length + (plates.length > 1 ? ' plaques' : ' plaque'), M, M + U0 * 0.75, U0 * 1.05, o, 700);
-        text(ctx, [meta.project, U.fmtInt(lm.total) + ' perles', meta.date].filter(Boolean).join('  ·  '), M, M + U0 * 1.85, U0 * 0.55, o, 500, INK_SOFT);
+        text(ctx, meta.title || ('Vue d’ensemble — ' + plates.length + (plates.length > 1 ? ' plaques' : ' plaque')), M, M + U0 * 0.75, U0 * 1.05, o, 700);
+        text(ctx, [meta.project, U.fmtInt(lm.total) + ' perles', meta.date, meta.note].filter(Boolean).join('  ·  '), M, M + U0 * 1.85, U0 * 0.55, o, 500, INK_SOFT);
       }
       const c = s - gap;
       plates.forEach((p) => {

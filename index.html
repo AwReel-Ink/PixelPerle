@@ -70,23 +70,22 @@
     <symbol id="i-box" viewBox="0 0 24 24"><path d="M3.5 8L12 4l8.5 4v8L12 20l-8.5-4z"/><path d="M3.5 8L12 12l8.5-4M12 12v8"/></symbol>
     <symbol id="i-merge" viewBox="0 0 24 24"><path d="M6 4v4a4 4 0 0 0 4 4h4a4 4 0 0 1 4 4v4"/><path d="M18 4v4a4 4 0 0 1-4 4"/><path d="M15 17l3 3 3-3"/></symbol>
     <symbol id="i-swap" viewBox="0 0 24 24"><path d="M5 8h13M14.5 4.5L18 8l-3.5 3.5"/><path d="M19 16H6M9.5 12.5L6 16l3.5 3.5"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/><path d="M8 4v5h7V4"/><rect x="8" y="13" width="8" height="5" rx="1"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4"/><path d="M8 7.5L12 4l4 3.5"/><path d="M7 11H6a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7a1 1 0 0 0-1-1h-1"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></symbol>
   </defs>
 </svg>
-
 <div class="app" id="app">
   <header class="topbar">
     <div class="brand" aria-label="Pixel Perles">
       <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
       <span class="brand-name">Pixel Perles</span>
     </div>
-    <button class="project-btn" id="projectBtn" type="button" title="Projets">
-      <svg class="ic"><use href="#i-folder"/></svg>
-      <span id="projectName">Projet</span>
-      <svg class="ic ic-sm"><use href="#i-chevron"/></svg>
-    </button>
-    <span class="save-state" id="saveState" aria-live="polite"></span>
+    <nav class="proj-tabs" id="projTabs" aria-label="Projets ouverts"></nav>
+    <button class="icon-btn proj-add" id="projAdd" type="button" title="Nouveau projet, ouvrir ou importer"><svg class="ic"><use href="#i-plus"/></svg></button>
     <div class="topbar-spacer"></div>
-    <button class="icon-btn" id="uiToggle" type="button" title="Passer à l’interface mobile"><svg class="ic"><use href="#i-phone"/></svg></button>
+    <span class="save-state" id="saveState" aria-live="polite"></span>
+    <button class="icon-btn" id="uiToggle" type="button" title="Passer à l’interface tablette"><svg class="ic"><use href="#i-phone"/></svg></button>
     <button class="icon-btn" id="settingsBtn" type="button" title="Paramètres"><svg class="ic"><use href="#i-gear"/></svg></button>
   </header>
 
@@ -96,12 +95,11 @@
     <button type="button" role="tab" data-tab="edit" title="Retouche (3)"><svg class="ic"><use href="#i-brush"/></svg><span>Retouche</span></button>
     <button type="button" role="tab" data-tab="palette" title="Palette (4)"><svg class="ic"><use href="#i-palette"/></svg><span>Palette</span></button>
     <button type="button" role="tab" data-tab="export" title="Export (5)"><svg class="ic"><use href="#i-export"/></svg><span>Export</span></button>
-    <button type="button" role="tab" data-tab="guide" title="Pose guidée (6)"><svg class="ic"><use href="#i-tablet"/></svg><span>Pose guidée</span></button>
+    <button type="button" role="tab" data-tab="guide" title="Pose guidée (6)"><svg class="ic"><use href="#i-tablet"/></svg><span>Pose</span></button>
   </nav>
 
   <aside class="panel" id="panel">
     <button class="sheet-handle" id="sheetHandle" type="button" aria-label="Agrandir ou réduire le panneau"><span></span></button>
-
     <!-- ===================== PLATEAU ===================== -->
     <section class="pane" data-pane="plates">
       <div class="pane-head">
@@ -113,33 +111,43 @@
           <span class="label">Modèle de plaque</span>
           <select id="plateType"></select>
         </label>
-        <div class="row-2" id="customSize" hidden>
-          <label class="field"><span class="label">Largeur (picots)</span><input id="customW" type="number" min="2" max="400" value="70" inputmode="numeric"></label>
-          <label class="field"><span class="label">Hauteur (picots)</span><input id="customH" type="number" min="2" max="400" value="70" inputmode="numeric"></label>
-          <label class="field span-2"><span class="label">Écart entre picots (mm)</span><input id="customPitch" type="number" min="1" max="10" step="0.01" value="2.6" inputmode="decimal"></label>
-        </div>
         <p class="hint" id="plateTypeInfo"></p>
         <div class="btn-row">
-          <button class="btn btn-primary" id="addPlate" type="button"><svg class="ic"><use href="#i-plus"/></svg>Ajouter une plaque</button>
+          <button class="btn btn-primary" id="addPlate" type="button"><svg class="ic"><use href="#i-plus"/></svg>Ajouter la plaque</button>
         </div>
-        <details class="disclosure">
-          <summary>Ajouter un assemblage de plaques</summary>
-          <div class="row-3">
-            <label class="field"><span class="label">Colonnes</span><input id="gridCols" type="number" min="1" max="10" value="2" inputmode="numeric"></label>
-            <label class="field"><span class="label">Lignes</span><input id="gridRows" type="number" min="1" max="10" value="2" inputmode="numeric"></label>
-            <button class="btn" id="addGrid" type="button">Ajouter</button>
+        <details class="dd" data-dd="pl-grid">
+          <summary><span>Ajouter un assemblage de plaques</span><svg class="ic dd-chev"><use href="#i-down"/></svg></summary>
+          <div class="dd-body">
+            <div class="row-3">
+              <label class="field"><span class="label">Colonnes</span><input id="gridCols" type="number" min="1" max="10" value="2" inputmode="numeric"></label>
+              <label class="field"><span class="label">Lignes</span><input id="gridRows" type="number" min="1" max="10" value="2" inputmode="numeric"></label>
+              <button class="btn" id="addGrid" type="button">Ajouter</button>
+            </div>
+            <p class="hint">Les plaques du modèle choisi sont posées côte à côte, prêtes à être emboîtées.</p>
           </div>
-          <p class="hint">Les plaques sont posées côte à côte, prêtes à être emboîtées.</p>
+        </details>
+        <details class="dd" data-dd="pl-mine">
+          <summary><span>Mes plaques</span><svg class="ic dd-chev"><use href="#i-down"/></svg></summary>
+          <div class="dd-body">
+            <p class="hint">Créez vos propres plaques : elles s’ajoutent à la liste des modèles, dans tous vos projets.</p>
+            <div class="row-2">
+              <label class="field"><span class="label">Largeur (picots)</span><input id="myW" type="number" min="2" max="400" value="40" inputmode="numeric"></label>
+              <label class="field"><span class="label">Hauteur (picots)</span><input id="myH" type="number" min="2" max="400" value="40" inputmode="numeric"></label>
+              <label class="field"><span class="label">Écart entre picots (mm)</span><input id="myPitch" type="number" min="1" max="10" step="0.01" value="2.6" inputmode="decimal"></label>
+              <label class="field"><span class="label">Nom</span><input id="myName" type="text" maxlength="30" placeholder="Ma plaque 40 × 40"></label>
+            </div>
+            <button class="btn" id="mySave" type="button"><svg class="ic"><use href="#i-save"/></svg>Enregistrer cette plaque</button>
+            <ul class="list mini-list" id="myList"></ul>
+          </div>
         </details>
         <label class="check"><input type="checkbox" id="snapToggle" checked><span>Aimanter aux bords des plaques voisines</span></label>
       </div>
       <div class="group">
-        <div class="group-head"><h3>Plaques</h3><span class="count" id="plateCount"></span></div>
+        <div class="group-head"><h3>Plaques du projet</h3><span class="count" id="plateCount"></span></div>
         <ul class="list" id="plateList"></ul>
         <p class="hint" id="plateSummary"></p>
       </div>
     </section>
-
     <!-- ===================== PALETTE ===================== -->
     <section class="pane" data-pane="palette" hidden>
       <div class="pane-head">
@@ -194,8 +202,9 @@
           </div>
         </div>
       </div>
-      <div class="group" id="refGroup">
-        <div class="group-head"><h3>Nuancier et détection</h3></div>
+      <details class="dd" data-dd="pal-ref" id="refGroup">
+        <summary><span>Nuancier et détection automatique</span><svg class="ic dd-chev"><use href="#i-down"/></svg></summary>
+        <div class="dd-body">
         <label class="field"><span class="label">Nuancier du fabricant</span><select id="refCatalog"></select></label>
         <p class="hint">Avec un nuancier, chaque couleur reçoit le code et le nom du fabricant le plus proche (ex. Artkal C15).</p>
         <div class="btn-row">
@@ -218,7 +227,8 @@
             <button class="btn btn-ghost" id="detCancel" type="button">Fermer la détection</button>
           </div>
         </div>
-      </div>
+        </div>
+      </details>
       <div class="group">
         <div class="group-head">
           <h3>Couleurs</h3><span class="count" id="colorCount"></span>
@@ -231,8 +241,8 @@
         </div>
         <p class="hint">Le code (1 à 5 caractères, ex. J0, O1, 12) est écrit dans chaque perle de l’export. La valeur hexadécimale est la teinte mesurée : vous pouvez la corriger ou saisir celle publiée par le fabricant.</p>
         <ul class="color-list" id="colorList"></ul>
-        <details class="disclosure">
-          <summary>Ajouter une liste de couleurs</summary>
+        <details class="dd dd-inner" data-dd="pal-bulk">
+          <summary><span>Ajouter une liste de couleurs</span><svg class="ic dd-chev"><use href="#i-down"/></svg></summary>
           <p class="hint">Une couleur par ligne : code, nom, puis la teinte en hexadécimal. Exemple : <code>J0 Jaune clair #FCEB8B</code></p>
           <textarea id="bulkText" rows="4" spellcheck="false" placeholder="J0 Jaune clair #FCEB8B&#10;J1 Jaune #F9D531"></textarea>
           <button class="btn btn-sm" id="bulkAdd" type="button">Ajouter ces couleurs</button>
@@ -244,7 +254,7 @@
     <section class="pane" data-pane="image" hidden>
       <div class="pane-head">
         <h2>Image</h2>
-        <p class="lede">Placez l’image sur vos plaques. Faites-la glisser, et utilisez les coins pour l’agrandir sans la déformer.</p>
+        <p class="lede">Placez l’image sur vos plaques : faites-la glisser, les coins l’agrandissent sans la déformer. Puis lancez la conversion.</p>
       </div>
       <div class="group">
         <div class="btn-row">
@@ -257,51 +267,51 @@
             <button class="icon-btn" id="imgRotR" type="button" title="Pivoter à droite (R)"><svg class="ic"><use href="#i-rotr"/></svg></button>
             <button class="icon-btn" id="imgFlipH" type="button" title="Miroir horizontal (F)"><svg class="ic"><use href="#i-fliph"/></svg></button>
             <button class="icon-btn" id="imgFlipV" type="button" title="Miroir vertical (Maj+F)"><svg class="ic"><use href="#i-flipv"/></svg></button>
-            <button class="btn btn-sm" id="imgFit" type="button"><svg class="ic"><use href="#i-fit"/></svg>Ajuster aux plaques</button>
+            <button class="btn btn-sm" id="imgFit" type="button"><svg class="ic"><use href="#i-fit"/></svg>Ajuster</button>
             <button class="icon-btn danger" id="imgDel" type="button" title="Retirer l’image"><svg class="ic"><use href="#i-trash"/></svg></button>
           </div>
           <p class="hint" id="imgInfo"></p>
-          <label class="field"><span class="label">Opacité à l’écran <output id="imgOpacityOut"></output></span><input id="imgOpacity" type="range" min="10" max="100" value="85"></label>
         </div>
-      </div>
-      <div class="group" id="adjustGroup" hidden>
-        <div class="group-head"><h3>Réglages de l’image</h3>
-          <div class="group-actions"><button class="btn btn-sm btn-ghost" id="adjReset" type="button">Réinitialiser</button></div>
-        </div>
-        <label class="field"><span class="label">Luminosité <output id="adjBrightnessOut"></output></span><input id="adjBrightness" type="range" min="-100" max="100" value="0"></label>
-        <label class="field"><span class="label">Contraste <output id="adjContrastOut"></output></span><input id="adjContrast" type="range" min="-100" max="100" value="0"></label>
-        <label class="field"><span class="label">Saturation <output id="adjSaturationOut"></output></span><input id="adjSaturation" type="range" min="-100" max="100" value="0"></label>
+        <details class="dd dd-img" id="adjustGroup" data-dd="img-adj">
+          <summary><span>Réglages de l’image <output class="dd-note" id="adjNote"></output></span><svg class="ic dd-chev"><use href="#i-down"/></svg></summary>
+          <div class="dd-body">
+            <label class="field"><span class="label">Luminosité <output id="adjBrightnessOut"></output></span><input id="adjBrightness" type="range" min="-100" max="100" value="0"></label>
+            <label class="field"><span class="label">Contraste <output id="adjContrastOut"></output></span><input id="adjContrast" type="range" min="-100" max="100" value="0"></label>
+            <label class="field"><span class="label">Saturation <output id="adjSaturationOut"></output></span><input id="adjSaturation" type="range" min="-100" max="100" value="0"></label>
+            <label class="field"><span class="label">Opacité à l’écran <output id="imgOpacityOut"></output></span><input id="imgOpacity" type="range" min="10" max="100" value="85"></label>
+            <button class="btn btn-sm btn-ghost" id="adjReset" type="button">Réinitialiser</button>
+          </div>
+        </details>
       </div>
       <div class="group conv-group">
         <div class="group-head"><h3>Conversion</h3></div>
         <label class="field"><span class="label">Palette utilisée</span><select id="convPalette"></select></label>
-        <div class="row-2">
-          <label class="field"><span class="label">Couleurs max.</span><input id="convMax" type="number" min="0" max="200" value="0" inputmode="numeric"></label>
-          <label class="field"><span class="label">Écart de tramage</span><select id="convStep"><option value="5">5 % (21 rendus)</option><option value="10">10 % (11 rendus)</option><option value="20">20 % (6 rendus)</option><option value="25">25 % (5 rendus)</option></select></label>
-        </div>
-        <label class="check"><input type="checkbox" id="convDominant"><span>Ajouter le rendu « Dominante » (contours nets)</span></label>
-        <p class="hint" id="convHint">Tous les rendus, de 0 à 100 % de tramage, sont calculés en même temps et affichés côte à côte : écartez ceux qui ne vous plaisent pas, puis validez votre préféré. Couleurs max. : 0 = toute la palette.</p>
-        <div class="auto-box">
-          <button class="btn btn-auto" id="autoBtn" type="button"><svg class="ic"><use href="#i-sparkle"/></svg>Rendu auto</button>
-          <p class="hint">Le meilleur rendu d’un coup, avec vos couleurs : contraste ajusté, 10 à 18 couleurs bien choisies, tramage dosé automatiquement, perles isolées nettoyées.</p>
-          <div class="field"><span class="label">Type d’image <output id="convKindOut"></output></span>
-            <div class="seg" id="convKind" role="radiogroup"><button type="button" data-v="auto">Reconnaître</button><button type="button" data-v="photo">Photo</button><button type="button" data-v="drawing">Dessin</button></div>
-          </div>
+        <div class="field"><span class="label">Type d’image <output id="convKindOut"></output></span>
+          <div class="seg" id="convKind" role="radiogroup"><button type="button" data-v="auto">Reconnaître</button><button type="button" data-v="photo">Photo</button><button type="button" data-v="drawing">Dessin</button></div>
         </div>
         <div class="stock-line">
           <button class="btn btn-sm" id="stockBtn" type="button"><svg class="ic"><use href="#i-box"/></svg>Stock restant</button>
           <span class="hint" id="stockSummary"></span>
         </div>
-        <button class="btn btn-go" id="convertBtn" type="button"><svg class="ic"><use href="#i-wand"/></svg><span id="convertLabel">Conversion</span></button>
+        <details class="dd" data-dd="img-adv">
+          <summary><span>Options avancées</span><svg class="ic dd-chev"><use href="#i-down"/></svg></summary>
+          <div class="dd-body">
+            <label class="field"><span class="label">Écart de tramage entre les rendus</span><select id="convStep"><option value="5">5 % (21 rendus)</option><option value="10">10 % (11 rendus)</option><option value="20">20 % (6 rendus)</option><option value="25">25 % (5 rendus)</option></select></label>
+            <label class="check"><input type="checkbox" id="convDominant"><span>Ajouter le rendu « Dominante » (contours nets)</span></label>
+            <label class="check"><input type="checkbox" id="convOutline"><span>Contour sombre autour des formes</span></label>
+            <p class="hint">Le contour entoure d’une rangée de la couleur la plus foncée les formes posées sur un fond vide (image détourée, picots effacés à la gomme).</p>
+          </div>
+        </details>
+        <button class="btn btn-go" id="convertBtn" type="button"><svg class="ic"><use href="#i-sparkle"/></svg><span>Conversion</span><span class="conv-sub" id="convertLabel"></span></button>
+        <p class="hint" id="convHint">Le meilleur rendu et tous les tramages sont calculés en même temps et affichés côte à côte : choisissez votre préféré.</p>
         <div class="progress" id="convProgress" hidden><span></span></div>
       </div>
     </section>
-
     <!-- ===================== RETOUCHE ===================== -->
     <section class="pane" data-pane="edit" hidden>
       <div class="pane-head">
         <h2>Retouche</h2>
-        <p class="lede" id="editLede">Corrigez les perles une à une. La gomme marque un picot vide : idéal pour découper une forme.</p>
+        <p class="lede" id="editLede">Corrigez les perles une à une. La gomme laisse un picot vide : idéal pour découper une forme.</p>
       </div>
       <div class="empty-note" id="editEmpty">Lancez d’abord la <b>Conversion</b> depuis l’onglet Image.</div>
       <div id="editBody">
@@ -322,113 +332,106 @@
             <button class="icon-btn" id="undoBtn" type="button" title="Annuler (Ctrl+Z)"><svg class="ic"><use href="#i-undo"/></svg></button>
             <button class="icon-btn" id="redoBtn" type="button" title="Rétablir (Ctrl+Y)"><svg class="ic"><use href="#i-redo"/></svg></button>
           </div>
+          <details class="dd dd-color" id="colorDD" data-dd="ed-color">
+            <summary><span class="dd-sw" id="activeSw"></span><span class="dd-color-txt"><span class="label">Couleur active</span><b id="activeColorLabel"></b></span><svg class="ic dd-chev"><use href="#i-down"/></svg></summary>
+            <div class="dd-body">
+              <label class="check"><input type="checkbox" id="swatchUsedOnly"><span>Seulement les couleurs utilisées</span></label>
+              <div class="swatches" id="swatches"></div>
+            </div>
+          </details>
         </div>
         <div class="group">
-          <div class="group-head"><h3>Couleur active</h3><span class="count" id="activeColorLabel"></span></div>
-          <label class="check"><input type="checkbox" id="swatchUsedOnly"><span>Seulement les couleurs utilisées</span></label>
-          <div class="swatches" id="swatches"></div>
+          <button class="btn btn-primary btn-wide" id="reduceBtn" type="button"><svg class="ic"><use href="#i-palette"/></svg>Limiter le nombre de couleurs</button>
+          <p class="hint"><span id="reduceCount"></span> Moins de changements de perles, ou un modèle plus simple pour un enfant : vous comparez les versions avant de choisir.</p>
         </div>
-        <div class="group">
-          <div class="group-head"><h3>Moins de couleurs</h3><span class="count" id="reduceCount"></span></div>
-          <p class="hint">Moins de changements de perles, ou un modèle plus simple pour un enfant : les couleurs proches sont fusionnées et les aplats regroupés. Vous comparez les versions avant de choisir.</p>
-          <button class="btn btn-primary" id="reduceBtn" type="button"><svg class="ic"><use href="#i-palette"/></svg>Limiter le nombre de couleurs</button>
-        </div>
-        <div class="group">
-          <div class="group-head"><h3>Affichage</h3></div>
-          <label class="check"><input type="checkbox" id="viewBeads"><span>Rendu perles (rondes, avec le trou)</span></label>
-          <label class="check"><input type="checkbox" id="viewCodes" checked><span>Codes dans les perles (en zoomant)</span></label>
-          <label class="check"><input type="checkbox" id="viewOverlay"><span>Superposer l’image d’origine</span></label>
-        </div>
-        <div class="group">
-          <div class="group-head"><h3>Remplacer une couleur</h3></div>
-          <div class="row-swap">
-            <select id="replFrom" aria-label="Couleur à remplacer"></select>
-            <svg class="ic"><use href="#i-swap"/></svg>
-            <select id="replTo" aria-label="Nouvelle couleur"></select>
+        <details class="dd" data-dd="ed-tools">
+          <summary><span>Outils de correction</span><svg class="ic dd-chev"><use href="#i-down"/></svg></summary>
+          <div class="dd-body">
+            <span class="label">Remplacer une couleur</span>
+            <div class="row-swap">
+              <select id="replFrom" aria-label="Couleur à remplacer"></select>
+              <svg class="ic"><use href="#i-swap"/></svg>
+              <select id="replTo" aria-label="Nouvelle couleur"></select>
+            </div>
+            <div class="field-inline">
+              <select id="replScope" aria-label="Portée"><option value="all">Toutes les plaques</option><option value="sel">Plaque sélectionnée</option></select>
+              <button class="btn btn-sm" id="replBtn" type="button">Remplacer</button>
+            </div>
+            <span class="label">Perles isolées</span>
+            <p class="hint">Une perle sans voisine de sa couleur prend la couleur la plus présente autour d’elle.</p>
+            <div class="field-inline">
+              <select id="cleanScope" aria-label="Portée"><option value="all">Toutes les plaques</option><option value="sel">Plaque sélectionnée</option></select>
+              <button class="btn btn-sm" id="cleanBtn" type="button"><svg class="ic"><use href="#i-sparkle"/></svg>Nettoyer</button>
+            </div>
           </div>
-          <div class="field-inline">
-            <select id="replScope" aria-label="Portée"><option value="all">Toutes les plaques</option><option value="sel">Plaque sélectionnée</option></select>
-            <button class="btn btn-sm" id="replBtn" type="button">Remplacer</button>
+        </details>
+        <details class="dd" data-dd="ed-view">
+          <summary><span>Affichage</span><svg class="ic dd-chev"><use href="#i-down"/></svg></summary>
+          <div class="dd-body">
+            <label class="check"><input type="checkbox" id="viewBeads"><span>Rendu perles (rondes, avec le trou)</span></label>
+            <label class="check"><input type="checkbox" id="viewCodes" checked><span>Codes dans les perles (en zoomant)</span></label>
+            <label class="check"><input type="checkbox" id="viewOverlay"><span>Superposer l’image d’origine</span></label>
           </div>
-        </div>
-        <div class="group">
-          <div class="group-head"><h3>Perles isolées</h3></div>
-          <p class="hint">Une perle sans aucune voisine de sa couleur prend la couleur la plus présente autour d’elle.</p>
-          <div class="field-inline">
-            <select id="cleanScope" aria-label="Portée"><option value="all">Toutes les plaques</option><option value="sel">Plaque sélectionnée</option></select>
-            <button class="btn btn-sm" id="cleanBtn" type="button"><svg class="ic"><use href="#i-sparkle"/></svg>Nettoyer</button>
-          </div>
-        </div>
+        </details>
         <p class="hint" id="editStats"></p>
       </div>
     </section>
-
     <!-- ===================== EXPORT ===================== -->
     <section class="pane" data-pane="export" hidden>
       <div class="pane-head">
         <h2>Export</h2>
-        <p class="lede">Une image PNG par plaque : grille repérée (colonnes A, B, C… et lignes 1, 2, 3…), codes des couleurs et légende avec les quantités.</p>
+        <p class="lede">Les images à suivre pour poser les perles, et la sauvegarde de votre projet.</p>
       </div>
-      <div class="empty-note" id="exportEmpty">Lancez d’abord la <b>Conversion</b> depuis l’onglet Image.</div>
-      <div id="exportBody">
-        <div class="group">
-          <div class="field">
-            <span class="label">Fond</span>
-            <div class="seg" id="expBg" role="radiogroup">
-              <button type="button" data-v="white">Blanc</button><button type="button" data-v="transparent">Transparent</button>
+      <div class="group">
+        <div class="group-head"><h3>Images du modèle</h3></div>
+        <div class="empty-note" id="exportEmpty">Lancez d’abord la <b>Conversion</b> depuis l’onglet Image.</div>
+        <div id="exportBody">
+          <details class="dd" data-dd="ex-opt">
+          <summary><span>Options d’export <output class="dd-note" id="expNote"></output></span><svg class="ic dd-chev"><use href="#i-down"/></svg></summary>
+          <div class="dd-body">
+            <div class="field"><span class="label">Fond</span>
+              <div class="seg" id="expBg" role="radiogroup"><button type="button" data-v="white">Blanc</button><button type="button" data-v="transparent">Transparent</button></div>
             </div>
-          </div>
-          <div class="field">
-            <span class="label">Style des picots</span>
-            <div class="seg" id="expStyle" role="radiogroup">
-              <button type="button" data-v="square">Cases</button><button type="button" data-v="bead">Perles rondes</button>
+            <div class="field"><span class="label">Style des picots</span>
+              <div class="seg" id="expStyle" role="radiogroup"><button type="button" data-v="square">Cases</button><button type="button" data-v="bead">Perles rondes</button></div>
             </div>
+            <label class="field"><span class="label">Petit côté de chaque image (pixels)</span><input id="expMinSide" type="number" min="1000" max="10000" step="10" value="4320" inputmode="numeric"></label>
+            <label class="check"><input type="checkbox" id="expCodes" checked><span>Écrire le code dans chaque perle</span></label>
+            <label class="check"><input type="checkbox" id="expGuides" checked><span>Espace supplémentaire toutes les 10 perles</span></label>
+            <label class="check"><input type="checkbox" id="expLabels4" checked><span>Repères sur les 4 côtés</span></label>
           </div>
-          <label class="check"><input type="checkbox" id="expCodes" checked><span>Écrire le code dans chaque perle</span></label>
-          <label class="check"><input type="checkbox" id="expGuides" checked><span>Espace supplémentaire toutes les 10 perles</span></label>
-          <label class="check"><input type="checkbox" id="expLabels4" checked><span>Repères sur les 4 côtés</span></label>
-          <label class="field"><span class="label">Petit côté de la grille (pixels)</span><input id="expMinSide" type="number" min="1000" max="10000" step="10" value="4320" inputmode="numeric"></label>
-        </div>
-        <div class="group">
-          <div class="btn-stack">
-            <button class="btn btn-primary" id="expAll" type="button"><svg class="ic"><use href="#i-export"/></svg>Tout exporter (ZIP)</button>
-            <button class="btn" id="expOverview" type="button">Vue d’ensemble (PNG)</button>
-          </div>
+        </details>
+          <button class="btn btn-primary btn-wide" id="expAll" type="button"><svg class="ic"><use href="#i-export"/></svg>Tout exporter (ZIP)</button>
+          <p class="hint">Une image par plaque et la vue d’ensemble, dans un seul fichier ZIP.</p>
           <div class="progress" id="expProgress" hidden><span></span></div>
           <p class="hint" id="expStatus"></p>
-          <p class="hint">La vue d’ensemble contient aussi tout le projet : ouverte depuis <b>Projets › Ouvrir un fichier</b>, elle le restaure.</p>
-        </div>
-        <div class="group">
-          <div class="group-head"><h3>Plaques</h3></div>
           <ul class="list" id="expList"></ul>
         </div>
       </div>
+      <div class="group save-group">
+        <div class="group-head"><h3>Sauvegarde du projet</h3></div>
+        <p class="hint">Une image <b>« Sauvegarde Pixel Perles »</b> : le modèle et sa légende, avec tout le projet caché dedans. Gardez-la pour retrouver le projet, ou envoyez-la à quelqu’un.</p>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="saveImg" type="button"><svg class="ic"><use href="#i-save"/></svg>Enregistrer la sauvegarde</button>
+          <button class="btn" id="shareImg" type="button"><svg class="ic"><use href="#i-share"/></svg>Partager…</button>
+        </div>
+        <p class="hint" id="saveLast"></p>
+        <p class="hint warn-hint">Envoyez-la comme <b>fichier</b> (Fichiers, AirDrop, e-mail) : les messageries qui compressent les photos effacent le projet caché.</p>
+      </div>
+      <div class="group">
+        <div class="group-head"><h3>Importer un projet</h3></div>
+        <p class="hint">Ouvrez une sauvegarde Pixel Perles (image PNG, ou ancien fichier .json) dans un onglet de projet.</p>
+        <button class="btn" id="importBtn" type="button"><svg class="ic"><use href="#i-upload"/></svg>Importer une sauvegarde</button>
+      </div>
     </section>
-
     <!-- ===================== POSE GUIDÉE ===================== -->
     <section class="pane" data-pane="guide" hidden>
       <div class="pane-head">
         <h2>Pose guidée</h2>
-        <p class="lede">Posez la plaque transparente sur l’écran de la tablette : l’écran devient le modèle, à taille réelle. Ou posez la tablette à côté et suivez le modèle bloc par bloc.</p>
+        <p class="lede">Posez la tablette à côté de la plaque : le modèle s’affiche bloc par bloc, avec la légende des perles à préparer.</p>
       </div>
       <div class="empty-note" id="guideEmpty">Lancez d’abord la <b>Conversion</b> depuis l’onglet Image.</div>
-      <div id="guideBody">
-        <div class="group">
-          <label class="field"><span class="label">Plaque à poser</span><select id="guidePaneSelect"></select></label>
-          <button class="btn btn-go" id="guideStart" type="button"><svg class="ic"><use href="#i-tablet"/></svg>Lancer la pose guidée</button>
-          <p class="hint" id="guidePaneCal"></p>
-        </div>
-        <div class="group">
-          <div class="group-head"><h3>Comment ça marche</h3></div>
-          <ol class="steps">
-            <li>Posez la plaque dans le coin éclairé (en haut à droite), en butée contre la coque.</li>
-            <li>La première fois : « Caler l’écran », deux cercles à amener sous deux picots.</li>
-            <li>« Placer le motif » sur les picots que vous voulez utiliser.</li>
-            <li>Verrouillez le tactile, réduisez le menu, et posez les perles couleur par couleur, ligne par ligne ou bloc par bloc.</li>
-          </ol>
-          <p class="hint">Votre avancement (couleurs posées, ligne en cours) est enregistré avec le projet.</p>
-        </div>
-      </div>
+      <div id="guideSlot"></div>
     </section>
   </aside>
 
@@ -460,9 +463,144 @@
       <button class="hud-btn" id="zoomFit" type="button" title="Tout afficher (0)"><svg class="ic"><use href="#i-fit"/></svg></button>
     </div>
     <div class="coords" id="coords"></div>
+    <div class="guide" id="guide" hidden>
+      <canvas id="guideCanvas" aria-label="Modèle de pose"></canvas>
+      <div class="g-zoom" id="gZoom" hidden>
+        <button class="gm-btn" id="gZoomOut" type="button" title="Dézoomer la grille"><svg class="ic"><use href="#i-minus"/></svg></button>
+        <span id="gZoomVal">100 %</span>
+        <button class="gm-btn" id="gZoomIn" type="button" title="Zoomer la grille (ou deux touchers sur la grille, ou pincer)"><svg class="ic"><use href="#i-plus"/></svg></button>
+        <button class="gm-btn" id="gZoomFit" type="button" title="Revoir tout le bloc"><svg class="ic"><use href="#i-fit"/></svg></button>
+      </div>
+      <div class="guide-mini" id="gMini" hidden>
+        <button class="gm-btn" id="gMiniMenu" type="button" title="Ouvrir le menu"><svg class="ic"><use href="#i-panel"/></svg></button>
+        <button class="gm-btn" id="gMiniLock" type="button" title="Verrouiller le tactile"><svg class="ic"><use href="#i-unlock"/></svg></button>
+        <span class="gm-sw" id="gMiniSw"></span>
+        <button class="gm-btn" id="gMiniPrev" type="button" title="Précédent"><svg class="ic"><use href="#i-left"/></svg></button>
+        <button class="gm-btn" id="gMiniNext" type="button" title="Suivant"><svg class="ic"><use href="#i-right"/></svg></button>
+        <button class="gm-btn gm-done" id="gMiniDone" type="button" title="Marquer posé"><svg class="ic"><use href="#i-check"/></svg></button>
+      </div>
+      <div class="guide-panel" id="guidePanel">
+        <div class="gp-head screen-only">
+          <h2>Sur l’écran <span class="beta-tag">bêta</span></h2>
+          <button class="btn btn-sm" id="gCollapse" type="button" title="Réduire le menu pour laisser de la place aux doigts"><svg class="ic"><use href="#i-left"/></svg>Réduire</button>
+          <button class="icon-btn" id="guideClose" type="button" title="Revenir à la pose à côté (Échap)"><svg class="ic"><use href="#i-close"/></svg></button>
+        </div>
+        <div class="gp-sec">
+          <label class="field"><span class="label">Plaque à poser</span><select id="guidePlate"></select></label>
+          <div class="seg" id="guideMode" role="radiogroup" aria-label="Avancer par">
+            <button type="button" data-v="color" class="screen-only">Couleur</button><button type="button" data-v="row" class="screen-only">Ligne</button><button type="button" data-v="block">Bloc par bloc</button><button type="button" data-v="all">Plaque entière</button>
+          </div>
+        </div>
+        <div class="gp-sec gp-calib" id="gCalibBox" hidden>
+          <h3>Caler l’écran sur la plaque</h3>
+          <ol class="gp-steps">
+            <li>Choisissez ci-dessous la plaque que vous posez, puis posez-la dans le <b>coin éclairé</b>, en butée contre la coque si elle dépasse.</li>
+            <li>Avec les flèches, amenez le <b class="c-green">cercle vert</b> sous le picot du coin.</li>
+            <li>Avec <b>+</b> et <b>−</b>, amenez le <b class="c-yellow">cercle jaune</b> sous le dernier picot de la rangée.</li>
+            <li>Vérifiez que le <b class="c-blue">cercle bleu</b> tombe sous le dernier picot de la colonne, puis validez.</li>
+          </ol>
+          <div class="gp-row"><button class="btn btn-sm btn-ghost" id="gCalCancel" type="button">Annuler</button><button class="btn btn-sm btn-primary" id="gCalOk" type="button">Valider</button></div>
+        </div>
+        <div class="gp-sec gp-calib" id="gPlaceBox" hidden>
+          <h3>Placer le motif sur la plaque</h3>
+          <p class="gp-small">Les petits points gris sont les picots libres. Déplacez le motif avec les flèches, d’un picot à la fois, ou faites-le glisser.</p>
+          <p class="gp-small" id="gPlaceInfo"></p>
+          <div class="gp-row"><button class="btn btn-sm btn-ghost" id="gPlaceCenter" type="button">Centrer</button><button class="btn btn-sm btn-primary" id="gPlaceOk" type="button">Valider</button></div>
+        </div>
+        <div id="gMainBox">
+          <div class="gp-sec" id="guideColorBox" hidden>
+            <div class="gp-current"><span class="gp-swatch" id="gColorSwatch"></span><div><b id="gColorName"></b><br><span class="gp-small" id="gColorCount"></span></div></div>
+            <div class="gp-nav">
+              <button class="btn" id="gPrev" type="button" aria-label="Couleur précédente"><svg class="ic"><use href="#i-left"/></svg></button>
+              <button class="btn btn-primary gp-done" id="gDone" type="button"><svg class="ic"><use href="#i-check"/></svg><span>Marquer posée</span></button>
+              <button class="btn" id="gNext" type="button" aria-label="Couleur suivante"><svg class="ic"><use href="#i-right"/></svg></button>
+            </div>
+            <div class="gp-row"><span id="gProgress" class="gp-small"></span><button class="btn btn-sm btn-ghost" id="gReset" type="button">Recommencer</button></div>
+            <ul class="gp-colors" id="gColorList"></ul>
+          </div>
+          <div class="gp-sec" id="guideRowBox" hidden>
+            <div class="gp-current"><div><b>Ligne <span id="gRowNum"></span></b> sur <span id="gRowTotal"></span></div></div>
+            <div class="gp-nav gp-nav2">
+              <button class="btn" id="gRowPrev" type="button" aria-label="Ligne précédente"><svg class="ic"><use href="#i-left"/></svg></button>
+              <button class="btn btn-primary gp-done" id="gRowNext" type="button"><span>Ligne suivante</span><svg class="ic"><use href="#i-right"/></svg></button>
+            </div>
+            <div class="gp-rowcolors" id="gRowColors"></div>
+          </div>
+          <div class="gp-sec" id="guideBlockBox" hidden>
+            <div class="gp-current"><div><b id="gBlockName"></b><br><span class="gp-small" id="gBlockInfo"></span></div></div>
+            <div class="gp-nav">
+              <button class="btn" id="gBlockPrev" type="button" aria-label="Bloc précédent"><svg class="ic"><use href="#i-left"/></svg></button>
+              <button class="btn btn-primary gp-done" id="gBlockDone" type="button"><svg class="ic"><use href="#i-check"/></svg><span>Bloc posé</span></button>
+              <button class="btn" id="gBlockNext" type="button" aria-label="Bloc suivant"><svg class="ic"><use href="#i-right"/></svg></button>
+            </div>
+            <div class="gp-row"><span class="gp-small" id="gBlockProgress"></span>
+              <label class="gp-inline"><span class="gp-small">Bloc de</span><select id="gBlockSize"><option value="8">8 × 8</option><option value="10">10 × 10</option><option value="13">13 × 13</option><option value="16">16 × 16</option></select></label>
+            </div>
+          </div>
+          <div class="gp-sec" id="gLegendBox">
+            <p class="gp-count" id="gBlockCount"></p>
+            <div class="seg seg-sm" id="gSort" role="radiogroup" aria-label="Trier la légende"><button type="button" data-v="desc" title="Les couleurs les plus nombreuses d’abord">Quantité ↓</button><button type="button" data-v="asc">Quantité ↑</button><button type="button" data-v="name" title="Pratique pour préparer les perles à l’avance">Nom</button></div>
+            <p class="gp-small">Un toucher fait ressortir une couleur ; deux touchers la marquent finie.</p>
+            <ul class="gp-colors" id="gBlockList"></ul>
+            <button class="btn btn-sm btn-ghost" id="gResetSide" type="button">Recommencer cette plaque</button>
+          </div>
+        </div>
+        <div class="gp-sec gp-plate screen-only" id="gPlateSec">
+          <h3>Plaque posée</h3>
+          <select id="gModel" aria-label="Modèle de la plaque posée"></select>
+          <div class="field"><span class="label">Coin de départ</span>
+            <div class="seg" id="gCorner" role="radiogroup"><button type="button" data-v="tl" title="Haut gauche">↖</button><button type="button" data-v="tr" title="Haut droit">↗</button><button type="button" data-v="bl" title="Bas gauche">↙</button><button type="button" data-v="br" title="Bas droit">↘</button></div>
+          </div>
+          <label class="check"><input type="checkbox" id="gCornerLight"><span>Éclairer le coin</span></label>
+          <div class="gp-row gp-wrap">
+            <button class="btn btn-sm" id="gCalib" type="button">Caler l’écran</button>
+            <button class="btn btn-sm" id="gPlace" type="button">Placer le motif</button>
+            <button class="btn btn-sm" id="gRotate" type="button"><svg class="ic"><use href="#i-rotr"/></svg>Pivoter</button>
+          </div>
+          <p class="gp-small" id="gCalState"></p>
+        </div>
+        <div class="gp-sec screen-only" id="gMoveSec">
+          <h3 id="gMoveTitle">Ajuster la grille</h3>
+          <div class="gp-adjust">
+            <div class="gp-pad">
+              <span></span><button class="btn" id="gUp" type="button" aria-label="Haut">↑</button><span></span>
+              <button class="btn" id="gLeftB" type="button" aria-label="Gauche">←</button><button class="btn gp-step" id="gStep" type="button" title="Pas du déplacement">fin</button><button class="btn" id="gRightB" type="button" aria-label="Droite">→</button>
+              <span></span><button class="btn" id="gDown" type="button" aria-label="Bas">↓</button><span></span>
+            </div>
+            <div class="gp-scale">
+              <button class="btn btn-sm" id="gSizePP" type="button" title="Agrandir de 1 %">++</button>
+              <button class="btn btn-sm" id="gSizeP" type="button" title="Agrandir de 0,1 %">+</button>
+              <span id="gSizeVal"></span>
+              <button class="btn btn-sm" id="gSizeM" type="button" title="Réduire de 0,1 %">−</button>
+              <button class="btn btn-sm" id="gSizeMM" type="button" title="Réduire de 1 %">−−</button>
+            </div>
+          </div>
+        </div>
+        <details class="dd gp-dd" data-dd="gd-view">
+          <summary><span>Affichage</span><svg class="ic dd-chev"><use href="#i-down"/></svg></summary>
+          <div class="dd-body">
+            <div class="field"><span class="label">Perles hors sélection et couleurs finies</span>
+              <div class="seg" id="gOthers" role="radiogroup"><button type="button" data-v="dim" title="Encore visibles, en très pâle">Atténuées</button><button type="button" data-v="hide" title="Remplacées par une case grise vide">Masquées</button></div>
+            </div>
+            <p class="gp-small" id="gOthersHint"></p>
+            <div class="field"><span class="label">Libellé des perles</span>
+              <div class="seg" id="gLabel" role="radiogroup"><button type="button" data-v="auto" title="Le nom quand c’est une référence (C15), sinon le code">Auto</button><button type="button" data-v="name">Nom</button><button type="button" data-v="code">Code</button></div>
+            </div>
+            <label class="check"><input type="checkbox" id="gCodes"><span>Écrire le libellé dans les perles</span></label>
+            <label class="field screen-only"><span class="label">Luminosité <output id="gBrightOut"></output></span><input type="range" id="gBright" min="30" max="100" value="100"></label>
+          </div>
+        </details>
+        <div class="gp-sec screen-only">
+          <button class="btn gp-lock" id="gLock" type="button"><svg class="ic"><use href="#i-unlock"/></svg><span>Verrouiller le tactile</span></button>
+          <button class="btn btn-sm" id="gFull" type="button"><svg class="ic"><use href="#i-full"/></svg>Plein écran</button>
+        </div>
+        <div class="gp-sec side-only beta-only">
+          <button class="btn" id="gScreenOpen" type="button"><svg class="ic"><use href="#i-tablet"/></svg>Poser sur l’écran <span class="beta-tag">bêta</span></button>
+        </div>
+      </div>
+    </div>
   </main>
 </div>
-
 
 <div class="cmp" id="compare" hidden>
   <div class="cmp-bar">
@@ -497,145 +635,6 @@
   <p class="cmp-help desktop-only">Molette : zoomer toutes les vues · glisser : déplacer · Maj + molette : faire défiler · ← → choisir · Espace : cocher / décocher · Entrée : valider</p>
 </div>
 
-<div class="guide" id="guide" hidden>
-  <canvas id="guideCanvas" aria-label="Modèle de pose"></canvas>
-  <div class="g-zoom" id="gZoom" hidden>
-    <button class="gm-btn" id="gZoomOut" type="button" title="Dézoomer la grille"><svg class="ic"><use href="#i-minus"/></svg></button>
-    <span id="gZoomVal">100 %</span>
-    <button class="gm-btn" id="gZoomIn" type="button" title="Zoomer la grille (ou deux touchers sur la grille, ou pincer)"><svg class="ic"><use href="#i-plus"/></svg></button>
-    <button class="gm-btn" id="gZoomFit" type="button" title="Revoir tout le bloc"><svg class="ic"><use href="#i-fit"/></svg></button>
-  </div>
-  <div class="guide-mini" id="gMini" hidden>
-    <button class="gm-btn" id="gMiniMenu" type="button" title="Ouvrir le menu"><svg class="ic"><use href="#i-panel"/></svg></button>
-    <button class="gm-btn" id="gMiniLock" type="button" title="Verrouiller le tactile"><svg class="ic"><use href="#i-unlock"/></svg></button>
-    <span class="gm-sw" id="gMiniSw"></span>
-    <button class="gm-btn" id="gMiniPrev" type="button" title="Précédent"><svg class="ic"><use href="#i-left"/></svg></button>
-    <button class="gm-btn" id="gMiniNext" type="button" title="Suivant"><svg class="ic"><use href="#i-right"/></svg></button>
-    <button class="gm-btn gm-done" id="gMiniDone" type="button" title="Marquer posé"><svg class="ic"><use href="#i-check"/></svg></button>
-  </div>
-  <aside class="guide-panel" id="guidePanel">
-    <div class="gp-head">
-      <h2>Pose guidée</h2>
-      <button class="btn btn-sm" id="gCollapse" type="button" title="Réduire le menu pour laisser de la place aux doigts"><svg class="ic"><use href="#i-left"/></svg>Réduire</button>
-      <button class="icon-btn" id="guideClose" type="button" title="Quitter (Échap)"><svg class="ic"><use href="#i-close"/></svg></button>
-    </div>
-    <div class="gp-sec">
-      <div class="seg" id="gView" role="radiogroup"><button type="button" data-v="screen">Sur l’écran</button><button type="button" data-v="side">À côté</button></div>
-      <select id="guidePlate" aria-label="Plaque du projet"></select>
-    </div>
-    <div class="gp-sec gp-calib" id="gCalibBox" hidden>
-      <h3>Caler l’écran sur la plaque</h3>
-      <ol class="gp-steps">
-        <li>Choisissez ci-dessous la plaque que vous posez, puis posez-la dans le <b>coin éclairé</b>, en butée contre la coque si elle dépasse.</li>
-        <li>Avec les flèches, amenez le <b class="c-green">cercle vert</b> sous le picot du coin.</li>
-        <li>Avec <b>+</b> et <b>−</b>, amenez le <b class="c-yellow">cercle jaune</b> sous le dernier picot de la rangée.</li>
-        <li>Vérifiez que le <b class="c-blue">cercle bleu</b> tombe sous le dernier picot de la colonne, puis validez.</li>
-      </ol>
-      <div class="gp-row"><button class="btn btn-sm btn-ghost" id="gCalCancel" type="button">Annuler</button><button class="btn btn-sm btn-primary" id="gCalOk" type="button">Valider</button></div>
-    </div>
-    <div class="gp-sec gp-calib" id="gPlaceBox" hidden>
-      <h3>Placer le motif sur la plaque</h3>
-      <p>Les petits points gris sont les picots libres. Déplacez le motif avec les flèches, d’un picot à la fois, ou faites-le glisser.</p>
-      <p class="gp-small" id="gPlaceInfo"></p>
-      <div class="gp-row"><button class="btn btn-sm btn-ghost" id="gPlaceCenter" type="button">Centrer</button><button class="btn btn-sm btn-primary" id="gPlaceOk" type="button">Valider</button></div>
-    </div>
-    <div id="gMainBox">
-      <div class="gp-sec">
-        <div class="seg" id="guideMode" role="radiogroup">
-          <button type="button" data-v="color">Couleur</button><button type="button" data-v="row">Ligne</button><button type="button" data-v="block">Bloc</button><button type="button" data-v="all">Tout</button>
-        </div>
-      </div>
-      <div class="gp-sec" id="guideColorBox">
-        <div class="gp-current"><span class="gp-swatch" id="gColorSwatch"></span><div><b id="gColorName"></b><br><span id="gColorCount"></span></div></div>
-        <div class="gp-nav">
-          <button class="btn" id="gPrev" type="button" aria-label="Couleur précédente"><svg class="ic"><use href="#i-left"/></svg></button>
-          <button class="btn btn-primary gp-done" id="gDone" type="button"><svg class="ic"><use href="#i-check"/></svg><span>Marquer posée</span></button>
-          <button class="btn" id="gNext" type="button" aria-label="Couleur suivante"><svg class="ic"><use href="#i-right"/></svg></button>
-        </div>
-        <div class="gp-row"><span id="gProgress" class="gp-small"></span><button class="btn btn-sm btn-ghost" id="gReset" type="button">Recommencer</button></div>
-        <ul class="gp-colors" id="gColorList"></ul>
-      </div>
-      <div class="gp-sec" id="guideRowBox" hidden>
-        <div class="gp-current"><div><b>Ligne <span id="gRowNum"></span></b> sur <span id="gRowTotal"></span></div></div>
-        <div class="gp-nav gp-nav2">
-          <button class="btn" id="gRowPrev" type="button" aria-label="Ligne précédente"><svg class="ic"><use href="#i-left"/></svg></button>
-          <button class="btn btn-primary gp-done" id="gRowNext" type="button"><span>Ligne suivante</span><svg class="ic"><use href="#i-right"/></svg></button>
-        </div>
-        <div class="gp-rowcolors" id="gRowColors"></div>
-      </div>
-      <div class="gp-sec" id="guideBlockBox" hidden>
-        <div class="gp-current"><div><b id="gBlockName"></b><br><span class="gp-small" id="gBlockInfo"></span></div></div>
-        <div class="gp-nav">
-          <button class="btn" id="gBlockPrev" type="button" aria-label="Bloc précédent"><svg class="ic"><use href="#i-left"/></svg></button>
-          <button class="btn btn-primary gp-done" id="gBlockDone" type="button"><svg class="ic"><use href="#i-check"/></svg><span>Bloc posé</span></button>
-          <button class="btn" id="gBlockNext" type="button" aria-label="Bloc suivant"><svg class="ic"><use href="#i-right"/></svg></button>
-        </div>
-        <div class="gp-row"><span class="gp-small" id="gBlockProgress"></span>
-          <label class="gp-inline"><span class="gp-small">Bloc de</span><select id="gBlockSize"><option value="8">8 × 8</option><option value="10">10 × 10</option><option value="13">13 × 13</option><option value="16">16 × 16</option></select></label>
-        </div>
-        <p class="gp-count" id="gBlockCount"></p>
-        <div class="field"><span class="label">Trier la légende</span>
-          <div class="seg" id="gSort" role="radiogroup"><button type="button" data-v="desc" title="Les couleurs les plus nombreuses d’abord">Quantité ↓</button><button type="button" data-v="asc">Quantité ↑</button><button type="button" data-v="name" title="Pratique pour préparer les perles à l’avance">Nom</button></div>
-        </div>
-        <p class="gp-small">Touchez une couleur pour la faire ressortir ; touchez-la deux fois pour la marquer finie (grisée, en fin de liste).</p>
-        <ul class="gp-colors" id="gBlockList"></ul>
-      </div>
-    </div>
-    <div class="gp-sec" id="gPlateSec">
-      <h3>Plaque posée</h3>
-      <select id="gModel" aria-label="Modèle de la plaque posée"></select>
-      <div class="field"><span class="label">Coin de départ</span>
-        <div class="seg" id="gCorner" role="radiogroup"><button type="button" data-v="tl" title="Haut gauche">↖</button><button type="button" data-v="tr" title="Haut droit">↗</button><button type="button" data-v="bl" title="Bas gauche">↙</button><button type="button" data-v="br" title="Bas droit">↘</button></div>
-      </div>
-      <label class="check"><input type="checkbox" id="gCornerLight"><span>Éclairer le coin</span></label>
-      <div class="gp-row gp-wrap">
-        <button class="btn btn-sm" id="gCalib" type="button">Caler l’écran</button>
-        <button class="btn btn-sm" id="gPlace" type="button">Placer le motif</button>
-        <button class="btn btn-sm" id="gRotate" type="button"><svg class="ic"><use href="#i-rotr"/></svg>Pivoter</button>
-      </div>
-      <p class="gp-small" id="gCalState"></p>
-    </div>
-    <div class="gp-sec" id="gMoveSec">
-      <h3 id="gMoveTitle">Ajuster la grille</h3>
-      <div class="gp-adjust">
-        <div class="gp-pad">
-          <span></span><button class="btn" id="gUp" type="button" aria-label="Haut">↑</button><span></span>
-          <button class="btn" id="gLeftB" type="button" aria-label="Gauche">←</button><button class="btn gp-step" id="gStep" type="button" title="Pas du déplacement">fin</button><button class="btn" id="gRightB" type="button" aria-label="Droite">→</button>
-          <span></span><button class="btn" id="gDown" type="button" aria-label="Bas">↓</button><span></span>
-        </div>
-        <div class="gp-scale">
-          <button class="btn btn-sm" id="gSizePP" type="button" title="Agrandir de 1 %">++</button>
-          <button class="btn btn-sm" id="gSizeP" type="button" title="Agrandir de 0,1 %">+</button>
-          <span id="gSizeVal"></span>
-          <button class="btn btn-sm" id="gSizeM" type="button" title="Réduire de 0,1 %">−</button>
-          <button class="btn btn-sm" id="gSizeMM" type="button" title="Réduire de 1 %">−−</button>
-        </div>
-      </div>
-    </div>
-    <div class="gp-sec">
-      <h3>Affichage</h3>
-      <div class="field"><span class="label">Perles hors sélection et couleurs finies</span>
-        <div class="seg" id="gOthers" role="radiogroup"><button type="button" data-v="dim" title="Encore visibles, en très pâle">Atténuées</button><button type="button" data-v="hide" title="Remplacées par une case grise vide">Masquées</button></div>
-      </div>
-      <p class="gp-small" id="gOthersHint"></p>
-      <div class="field"><span class="label">Libellé des perles</span>
-        <div class="seg" id="gLabel" role="radiogroup"><button type="button" data-v="auto" title="Le nom quand c'est une référence (C15), sinon le code">Automatique</button><button type="button" data-v="name">Nom</button><button type="button" data-v="code">Code</button></div>
-      </div>
-      <label class="check"><input type="checkbox" id="gCodes"><span>Écrire le libellé dans les perles</span></label>
-      <label class="field"><span class="label">Luminosité <output id="gBrightOut"></output></span><input type="range" id="gBright" min="30" max="100" value="100"></label>
-    </div>
-    <div class="gp-sec">
-      <h3>Image du projet</h3>
-      <p class="gp-small">Le modèle avec sa légende, qui contient aussi tout le projet : de quoi le retrouver si le navigateur s’efface, ou l’envoyer à quelqu’un.</p>
-      <div class="gp-row gp-wrap"><button class="btn btn-sm" id="gSaveImg" type="button"><svg class="ic"><use href="#i-export"/></svg>Enregistrer</button><button class="btn btn-sm" id="gShareImg" type="button">Partager…</button></div>
-    </div>
-    <div class="gp-sec">
-      <button class="btn gp-lock" id="gLock" type="button"><svg class="ic"><use href="#i-unlock"/></svg><span>Verrouiller le tactile</span></button>
-      <button class="btn btn-sm" id="gFull" type="button"><svg class="ic"><use href="#i-full"/></svg>Plein écran</button>
-    </div>
-  </aside>
-</div>
-
 <div class="modal-root" id="modalRoot"></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 
@@ -647,15 +646,21 @@
 <script src="js/render.js"></script>
 <script src="js/catalogs.js"></script>
 <script src="js/gridview.js"></script>
-<script src="js/app-core.js"></script>
-<script src="js/app-stage.js"></script>
-<script src="js/app-panels.js"></script>
+<script src="js/core.js"></script>
+<script src="js/projects.js"></script>
+<script src="js/stage.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/pane-plates.js"></script>
+<script src="js/pane-image.js"></script>
+<script src="js/pane-edit.js"></script>
+<script src="js/pane-palette.js"></script>
+<script src="js/pane-export.js"></script>
 <script src="js/auto.js"></script>
 <script src="js/reduce.js"></script>
 <script src="js/compare.js"></script>
 <script src="js/guide.js"></script>
 <script src="js/detect.js"></script>
-<script src="js/app-main.js"></script>
+<script src="js/main.js"></script>
 <!--/SCRIPTS-->
 </body>
 </html>

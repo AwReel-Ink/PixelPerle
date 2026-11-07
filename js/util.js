@@ -163,17 +163,36 @@
   const nf = new Intl.NumberFormat('fr-FR');
   const fmtInt = (n) => nf.format(Math.round(n));
 
-  function blobToDataURL(blob) {
-    return new Promise((res, rej) => {
-      const fr = new FileReader();
-      fr.onload = () => res(fr.result);
-      fr.onerror = () => rej(fr.error);
-      fr.readAsDataURL(blob);
-    });
+  // Lecture robuste d'un Blob : sur iPad, un Blob relu depuis IndexedDB peut être devenu introuvable (bug de Safari)
+  async function blobBytes(blob) {
+    try { return new Uint8Array(await blob.arrayBuffer()); }
+    catch (e) {
+      return new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(new Uint8Array(fr.result));
+        fr.onerror = () => rej(fr.error || e);
+        fr.readAsArrayBuffer(blob);
+      });
+    }
   }
+  function bytesToBase64(u8) {
+    let s = '';
+    for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+    return btoa(s);
+  }
+  async function blobToDataURL(blob) {
+    const u8 = await blobBytes(blob);
+    return 'data:' + (blob.type || 'application/octet-stream') + ';base64,' + bytesToBase64(u8);
+  }
+  // sans fetch : la page hébergée peut interdire fetch sur les adresses data:
   async function dataURLToBlob(url) {
-    const r = await fetch(url);
-    return r.blob();
+    const m = /^data:([^;,]*)(;base64)?,(.*)$/s.exec(url);
+    if (!m) throw new Error('Données d’image invalides');
+    if (!m[2]) return new Blob([decodeURIComponent(m[3])], { type: m[1] });
+    const bin = atob(m[3]);
+    const u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return new Blob([u8], { type: m[1] || 'application/octet-stream' });
   }
 
   function loadImageFromBlob(blob) {
@@ -207,7 +226,7 @@
   PP.util = {
     clamp, uid, debounce, hexToRgb, normHex, rgbToHex, S2L, linToSrgb, linToLab, rgbToLab,
     deltaE2000, relLum, textOn, shade, colLetters, naturalCompare, crc32, crc32Final,
-    escapeHtml, safeFileName, fmtInt, blobToDataURL, dataURLToBlob, loadImageFromBlob,
+    escapeHtml, safeFileName, fmtInt, blobToDataURL, dataURLToBlob, blobBytes, loadImageFromBlob,
     imageToCanvas, nextFrame, yieldUI,
   };
 })();
