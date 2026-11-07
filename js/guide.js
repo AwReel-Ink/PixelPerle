@@ -56,6 +56,7 @@
   }
   G.isCalibrated = () => { try { return !!cal().calibrated; } catch (e) { return false; } };
   G.applySide = () => {};
+  G._hits = () => hits.slice();
 
   // ---------- Projet ----------
   const P = () => A.project;
@@ -141,7 +142,7 @@
     const g = gs();
     if (!g.view) g.view = 'screen';
     if (!g.mode || !['color', 'row', 'block', 'all'].includes(g.mode)) g.mode = 'color';
-    st = { plateId: plateId || g.plateId || P().plates[0].id, locked: false, panel: true, calib: false, placing: false, fine: true, highlight: null };
+    st = { plateId: plateId || g.plateId || P().plates[0].id, locked: false, panel: true, calib: false, placing: false, fine: true, highlight: null, zoom: { s: 1, x: 0, y: 0 }, legScroll: 0 };
     g.plateId = st.plateId;
     $('guide').hidden = false;
     document.documentElement.classList.add('guide-open');
@@ -229,6 +230,7 @@
     hits = [];
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (gs().view === 'side') { drawSide(); return; }
+    $('gZoom').hidden = true;
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, W, H);
     const p = plate();
@@ -272,6 +274,7 @@
     const rad = L.pp * 0.46;
     const showCodes = g.codes && L.pp >= 15;
     const br = mode === 'block' ? blockRect(p, ps.block) : null;
+    const blockDone = new Set(mode === 'block' ? legendDone(p) : []);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
@@ -292,7 +295,7 @@
           else alpha = hide ? 0 : 0.12;
         } else if (mode === 'block') {
           const inB = di >= br.x0 && di < br.x1 && dj >= br.y0 && dj < br.y1;
-          if (inB) { if (st.highlight != null && v !== st.highlight) alpha = 0.25; }
+          if (inB) { if ((st.highlight != null && v !== st.highlight) || blockDone.has(col.code)) alpha = hide ? 0 : 0.25; }
           else alpha = hide ? 0 : 0.1;
         }
         if (alpha === 0) continue;
@@ -378,6 +381,68 @@
   }
 
   // ---------- « À côté » : un bloc en grand, repères et légende ----------
+  // ---------- Légende : tri, couleurs terminées ----------
+  const SORTS = { desc: 'quantité ↓', asc: 'quantité ↑', name: 'nom' };
+  const sortMode = () => (SORTS[gs().legendSort] ? gs().legendSort : 'desc');
+  function legendKey(p) {
+    return gs().mode === 'block' ? blockSize() + ':' + (plateState(p.id).block | 0) : 'all';
+  }
+  function legendDone(p) {
+    const ps = plateState(p.id);
+    return (ps.legendDone && ps.legendDone[legendKey(p)]) || [];
+  }
+  function toggleLegendDone(p, code) {
+    const ps = plateState(p.id);
+    ps.legendDone = ps.legendDone || {};
+    const k = legendKey(p);
+    const list = ps.legendDone[k] || (ps.legendDone[k] = []);
+    const i = list.indexOf(code);
+    if (i >= 0) list.splice(i, 1); else list.push(code);
+    if (!list.length) delete ps.legendDone[k];
+    A.saveProject();
+  }
+  // couleurs de la portion affichée (bloc ou plaque entière), triées, les terminées à la fin
+  function portionColors(p) {
+    const whole = gs().mode !== 'block';
+    let list;
+    if (whole) list = colorsOf(p);
+    else {
+      const br = blockRect(p, plateState(p.id).block);
+      list = colorsOf(p, (i, j) => { const [di, dj] = toDisplay(i, j, p); return di >= br.x0 && di < br.x1 && dj >= br.y0 && dj < br.y1; });
+    }
+    const done = new Set(legendDone(p));
+    const how = sortMode();
+    list.forEach((x) => { x.done = done.has(x.c.code); });
+    list.sort((a, b) => (a.done - b.done) || (how === 'name' ? U.naturalCompare(lbl(a.c), lbl(b.c)) : how === 'asc' ? a.n - b.n : b.n - a.n) || U.naturalCompare(lbl(a.c), lbl(b.c)));
+    return list;
+  }
+  // un toucher : faire ressortir la couleur ; deux touchers rapides : la marquer terminée (grisée)
+  function legendTap(code, idx) {
+    const now = performance.now();
+    const t = st.lastTap;
+    if (t && t.code === code && now - t.t < 420) {
+      st.highlight = t.prev;
+      st.lastTap = null;
+      toggleLegendDone(plate(), code);
+      if (st.highlight === idx) st.highlight = null;
+    } else {
+      st.lastTap = { code, t: now, prev: st.highlight };
+      st.highlight = st.highlight === idx ? null : idx;
+    }
+    refreshPanel();
+  }
+  function cycleSort() {
+    const order = ['desc', 'asc', 'name'];
+    gs().legendSort = order[(order.indexOf(sortMode()) + 1) % order.length];
+    st.legScroll = 0;
+    A.saveProject();
+    refreshPanel();
+  }
+  function resetSideView() {
+    st.zoom = { s: 1, x: 0, y: 0 };
+    st.legScroll = 0;
+  }
+
   function drawSide() {
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, W, H);
@@ -394,49 +459,67 @@
     const cols = br.x1 - br.x0, rows = br.y1 - br.y0;
     const legendSide = fa.w > fa.h * 1.05;
     const pad = 14;
-    const legendW = legendSide ? Math.min(240, fa.w * 0.3) : 0;
-    const legendH = legendSide ? 0 : Math.min(fa.h * 0.32, 220);
+    const legendW = legendSide ? Math.min(250, fa.w * 0.32) : 0;
+    const legendH = legendSide ? 0 : Math.min(fa.h * 0.36, 260);
     const lab = 26;
-    const cell = Math.max(4, Math.min((fa.w - legendW - lab - pad * 3) / cols, (fa.h - legendH - lab - pad * 3) / rows));
+    const cell0 = Math.max(4, Math.min((fa.w - legendW - lab - pad * 3) / cols, (fa.h - legendH - lab - pad * 3) / rows));
     const gx = fa.x + pad + lab, gy = fa.y + pad + lab;
-    const inBlock = (di, dj) => di >= br.x0 && di < br.x1 && dj >= br.y0 && dj < br.y1;
-    const legend = colorsOf(p, (i, j) => { const [di, dj] = toDisplay(i, j, p); return inBlock(di, dj); });
+    const GA = { x: gx, y: gy, w: cols * cell0, h: rows * cell0 };
+    st.gridArea = GA;
+    // zoom : la grille garde sa place, son contenu s'agrandit et se déplace à l'intérieur
+    const z = st.zoom || (st.zoom = { s: 1, x: 0, y: 0 });
+    const cell = cell0 * z.s;
+    z.x = U.clamp(z.x, GA.w - cols * cell, 0);
+    z.y = U.clamp(z.y, GA.h - rows * cell, 0);
+    const ox = gx + z.x, oy = gy + z.y;
+    const legend = portionColors(p);
+    const doneSet = new Set(legend.filter((x) => x.done).map((x) => x.idx));
+    const hide = g.others === 'hide';
 
     // repères : lettres des colonnes, numéros des lignes (comme sur l'export)
-    ctx.fillStyle = '#1B1F24';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const lf = Math.max(9, Math.min(15, cell * 0.45));
     ctx.font = '700 ' + lf + 'px system-ui, sans-serif';
+    ctx.fillStyle = '#1B1F24';
     const every = cell < 12 ? 5 : 1;
-    for (let c = 0; c < cols; c++) if ((br.x0 + c) % every === 0 || every === 1) ctx.fillText(U.colLetters(br.x0 + c), gx + (c + 0.5) * cell, gy - lab / 2);
-    for (let rr = 0; rr < rows; rr++) if ((br.y0 + rr) % every === 0 || every === 1) ctx.fillText(String(br.y0 + rr + 1), gx - lab / 2, gy + (rr + 0.5) * cell);
+    ctx.save(); ctx.beginPath(); ctx.rect(gx, gy - lab, GA.w, lab); ctx.clip();
+    for (let c = 0; c < cols; c++) if ((br.x0 + c) % every === 0 || every === 1) ctx.fillText(U.colLetters(br.x0 + c), ox + (c + 0.5) * cell, gy - lab / 2);
+    ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(gx - lab, gy, lab, GA.h); ctx.clip();
+    for (let rr = 0; rr < rows; rr++) if ((br.y0 + rr) % every === 0 || every === 1) ctx.fillText(String(br.y0 + rr + 1), gx - lab / 2, oy + (rr + 0.5) * cell);
+    ctx.restore();
 
     // cases
+    ctx.save(); ctx.beginPath(); ctx.rect(GA.x, GA.y, GA.w, GA.h); ctx.clip();
     const gap = Math.max(1, cell * 0.08);
-    const showCodes = cell >= 18;
-    for (let rr = 0; rr < rows; rr++) {
-      for (let c = 0; c < cols; c++) {
+    const showCodes = g.codes !== false && cell >= 18;
+    const c0 = Math.max(0, Math.floor(-z.x / cell)), c1 = Math.min(cols, Math.ceil((GA.w - z.x) / cell));
+    const r0 = Math.max(0, Math.floor(-z.y / cell)), r1 = Math.min(rows, Math.ceil((GA.h - z.y) / cell));
+    for (let rr = r0; rr < r1; rr++) {
+      for (let c = c0; c < c1; c++) {
         const [i, j] = fromDisplay(br.x0 + c, br.y0 + rr, p);
         const v = grid[j * p.w + i];
-        const x = gx + c * cell + gap / 2, y = gy + rr * cell + gap / 2, s = cell - gap;
-        if (v < 0 || !r.colors[v]) {
-          ctx.fillStyle = '#E4E5E7';
-          PP.render.rr(ctx, x, y, s, s, s * 0.15); ctx.fill();
+        const x = ox + c * cell + gap / 2, y = oy + rr * cell + gap / 2, sz = cell - gap;
+        // perle d'une autre couleur que celle touchée, ou d'une couleur terminée : atténuée ou masquée
+        const faded = v >= 0 && ((st.highlight != null && v !== st.highlight) || doneSet.has(v));
+        if (v < 0 || !r.colors[v] || (faded && hide)) {
+          ctx.fillStyle = v < 0 ? '#E4E5E7' : '#F1F2F3';
+          PP.render.rr(ctx, x, y, sz, sz, sz * 0.15); ctx.fill();
           continue;
         }
         const col = r.colors[v];
-        ctx.globalAlpha = st.highlight != null && v !== st.highlight ? 0.15 : 1;
+        ctx.globalAlpha = faded ? 0.15 : 1;
         ctx.fillStyle = col.hex;
-        PP.render.rr(ctx, x, y, s, s, s * 0.15); ctx.fill();
+        PP.render.rr(ctx, x, y, sz, sz, sz * 0.15); ctx.fill();
         ctx.lineWidth = 1;
         ctx.strokeStyle = U.shade(col.hex, 0.72);
         ctx.stroke();
         if (showCodes) {
           const t = lbl(col);
           ctx.fillStyle = U.textOn(col.hex);
-          ctx.font = '700 ' + Math.round(s * (t.length <= 2 ? 0.42 : t.length === 3 ? 0.33 : 0.26)) + 'px system-ui, sans-serif';
-          ctx.fillText(t, x + s / 2, y + s / 2 + 1);
+          ctx.font = '700 ' + Math.round(sz * (t.length <= 2 ? 0.42 : t.length === 3 ? 0.33 : 0.26)) + 'px system-ui, sans-serif';
+          ctx.fillText(t, x + sz / 2, y + sz / 2 + 1);
         }
         ctx.globalAlpha = 1;
       }
@@ -444,16 +527,34 @@
     // traits tous les 5 picots pour compter plus facilement
     ctx.strokeStyle = 'rgba(27,31,36,0.35)';
     ctx.lineWidth = 1;
-    for (let c = 0; c <= cols; c++) if ((br.x0 + c) % 5 === 0) { ctx.beginPath(); ctx.moveTo(gx + c * cell, gy); ctx.lineTo(gx + c * cell, gy + rows * cell); ctx.stroke(); }
-    for (let rr = 0; rr <= rows; rr++) if ((br.y0 + rr) % 5 === 0) { ctx.beginPath(); ctx.moveTo(gx, gy + rr * cell); ctx.lineTo(gx + cols * cell, gy + rr * cell); ctx.stroke(); }
+    for (let c = 0; c <= cols; c++) if ((br.x0 + c) % 5 === 0) { ctx.beginPath(); ctx.moveTo(ox + c * cell, oy); ctx.lineTo(ox + c * cell, oy + rows * cell); ctx.stroke(); }
+    for (let rr = 0; rr <= rows; rr++) if ((br.y0 + rr) % 5 === 0) { ctx.beginPath(); ctx.moveTo(ox, oy + rr * cell); ctx.lineTo(ox + cols * cell, oy + rr * cell); ctx.stroke(); }
+    ctx.restore();
+    if (z.s > 1.01) {
+      ctx.strokeStyle = 'rgba(27,31,36,0.5)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(GA.x - 0.5, GA.y - 0.5, GA.w + 1, GA.h + 1);
+    }
 
-    // légende : carte du motif avec le bloc, puis les couleurs du bloc avec leur quantité
-    const lx = legendSide ? gx + cols * cell + pad * 1.5 : fa.x + pad;
-    let ly = legendSide ? gy - lab : gy + rows * cell + pad;
+    // colonne (ou bande) de légende : zoom, carte du motif, compteur et liste des couleurs
+    const lx = legendSide ? gx + GA.w + pad * 1.5 : fa.x + pad;
+    let ly = legendSide ? gy - lab : gy + GA.h + pad;
     const lw = legendSide ? fa.x + fa.w - lx - pad : fa.w - pad * 2;
+    const zb = $('gZoom');
+    zb.hidden = false;
+    zb.style.left = lx + 'px';
+    zb.style.top = ly + 'px';
+    zb.style.width = Math.min(lw, 230) + 'px';
+    $('gZoomVal').textContent = Math.round(z.s * 100) + ' %';
+    $('gZoomFit').disabled = z.s <= 1.01;
+    let hx = lx + Math.min(lw, 230) + 10; // à droite du zoom (bande du bas), la carte du motif
+    if (legendSide) { ly += 50; hx = lx; }
     ctx.textAlign = 'left';
+    let headY = ly;
     if (!whole) {
-      const mm = Math.min(lw / d.w, 90 / d.h);
+      const mmH = legendSide ? 80 : 44;
+      const mm = Math.min((legendSide ? lw : lw - (hx - lx)) / d.w * 0.5, mmH / d.h);
+      const mx = hx, my = legendSide ? ly : ly - 2;
       const mini = document.createElement('canvas');
       mini.width = d.w; mini.height = d.h;
       const mctx = mini.getContext('2d');
@@ -468,49 +569,116 @@
       }
       mctx.putImageData(img, 0, 0);
       ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(mini, lx, ly, d.w * mm, d.h * mm);
-      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(mini, mx, my, d.w * mm, d.h * mm);
       ctx.fillStyle = 'rgba(255,255,255,0.45)';
-      ctx.fillRect(lx, ly, d.w * mm, d.h * mm);
-      ctx.drawImage(mini, br.x0, br.y0, br.x1 - br.x0, br.y1 - br.y0, lx + br.x0 * mm, ly + br.y0 * mm, (br.x1 - br.x0) * mm, (br.y1 - br.y0) * mm);
+      ctx.fillRect(mx, my, d.w * mm, d.h * mm);
+      ctx.drawImage(mini, br.x0, br.y0, cols, rows, mx + br.x0 * mm, my + br.y0 * mm, cols * mm, rows * mm);
+      ctx.imageSmoothingEnabled = true;
       ctx.strokeStyle = '#D3366F';
       ctx.lineWidth = 2;
-      ctx.strokeRect(lx + br.x0 * mm, ly + br.y0 * mm, (br.x1 - br.x0) * mm, (br.y1 - br.y0) * mm);
+      ctx.strokeRect(mx + br.x0 * mm, my + br.y0 * mm, cols * mm, rows * mm);
       ctx.fillStyle = '#1B1F24';
       ctx.font = '700 15px system-ui, sans-serif';
-      ctx.fillText(blockName(p, ps.block) + ' · ' + U.colLetters(br.x0) + '–' + U.colLetters(br.x1 - 1) + ', ' + (br.y0 + 1) + '–' + br.y1, lx + d.w * mm + 10, ly + 10);
-      ly += d.h * mm + 14;
+      ctx.fillText(blockName(p, ps.block), mx + d.w * mm + 10, my + 10);
+      ctx.font = '500 12px system-ui, sans-serif';
+      ctx.fillStyle = '#5B6470';
+      ctx.fillText(U.colLetters(br.x0) + '–' + U.colLetters(br.x1 - 1) + ', ' + (br.y0 + 1) + '–' + br.y1, mx + d.w * mm + 10, my + 28);
+      headY = legendSide ? ly + d.h * mm + 12 : ly + 50;
     } else {
       ctx.fillStyle = '#1B1F24';
       ctx.font = '700 15px system-ui, sans-serif';
-      ctx.fillText(p.name + ' · ' + d.w + ' × ' + d.h, lx, ly + 10);
-      ly += 26;
+      ctx.fillText(p.name + ' · ' + d.w + ' × ' + d.h, hx, ly + 12);
+      headY = legendSide ? ly + 26 : ly + 50;
     }
-    const rowH = 28;
-    const colsL = legendSide ? 1 : Math.max(1, Math.floor(lw / 170));
+
+    // compteur de couleurs et tri (touchable)
+    const nDone = doneSet.size;
+    ctx.fillStyle = '#1B1F24';
+    ctx.font = '700 14px system-ui, sans-serif';
+    ctx.fillText('Couleurs dans cette portion : ' + legend.length + (nDone ? ' · ' + nDone + ' finie' + (nDone > 1 ? 's' : '') : ''), lx, headY + 10);
+    const chip = 'Tri : ' + SORTS[sortMode()];
+    ctx.font = '600 13px system-ui, sans-serif';
+    const cwid = ctx.measureText(chip).width + 18;
+    const chipY = headY + 22;
+    ctx.fillStyle = '#EEF0F3';
+    PP.render.rr(ctx, lx, chipY, cwid, 26, 13); ctx.fill();
+    ctx.fillStyle = '#1B1F24';
+    ctx.fillText(chip, lx + 9, chipY + 13);
+    hits.push({ type: 'sort', x: lx - 4, y: chipY - 6, w: cwid + 8, h: 38 });
+    ctx.font = '500 12px system-ui, sans-serif';
+    ctx.fillStyle = '#5B6470';
+    const helpTxt = 'touchez : faire ressortir · 2 touchers : finie';
+    if (lx + cwid + 12 + ctx.measureText(helpTxt).width < lx + lw) ctx.fillText(helpTxt, lx + cwid + 12, chipY + 13);
+
+    // liste des couleurs, avec défilement quand elle est trop longue
+    const rowH = 30;
+    const colsL = legendSide ? 1 : Math.max(1, Math.floor(lw / 185));
     const cw = lw / colsL;
+    const area = { x: lx - 4, y: chipY + 34, w: lw + 8, h: Math.max(rowH, fa.y + fa.h - pad - (chipY + 34)) };
+    const contentH = Math.ceil(legend.length / colsL) * rowH;
+    const maxScroll = Math.max(0, contentH - area.h);
+    st.legScroll = U.clamp(st.legScroll || 0, 0, maxScroll);
+    st.legArea = Object.assign({ maxScroll }, area);
+    ctx.save(); ctx.beginPath(); ctx.rect(area.x, area.y, area.w, area.h); ctx.clip();
     legend.forEach((x, k) => {
-      const cx = lx + (k % colsL) * cw, cy = ly + Math.floor(k / colsL) * rowH;
-      if (cy + rowH > fa.y + fa.h) return;
+      const cx = lx + (k % colsL) * cw, cy = area.y + Math.floor(k / colsL) * rowH - st.legScroll;
+      if (cy + rowH < area.y || cy > area.y + area.h) return;
       const on = st.highlight === x.idx;
       if (on) { ctx.fillStyle = '#F8E2EA'; PP.render.rr(ctx, cx - 4, cy, cw - 4, rowH - 3, 6); ctx.fill(); }
+      ctx.globalAlpha = x.done ? 0.35 : 1;
       ctx.fillStyle = x.c.hex;
       ctx.beginPath(); ctx.arc(cx + 10, cy + rowH / 2 - 1, 9, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = U.shade(x.c.hex, 0.7); ctx.lineWidth = 1; ctx.stroke();
       ctx.fillStyle = '#1B1F24';
       ctx.font = '700 14px system-ui, sans-serif';
-      ctx.fillText(lbl(x.c), cx + 26, cy + rowH / 2);
-      const nm = lbl(x.c) === x.c.code ? (x.c.name || '') : x.c.code;
+      const t = lbl(x.c);
+      ctx.fillText(t, cx + 26, cy + rowH / 2);
+      let nm = t === x.c.code ? (x.c.name || '') : x.c.code;
       ctx.font = '500 12px system-ui, sans-serif';
       ctx.fillStyle = '#5B6470';
-      ctx.fillText(nm.slice(0, 16), cx + 80, cy + rowH / 2);
+      const nmW = cw - 80 - 58;
+      if (nmW > 24) {
+        if (ctx.measureText(nm).width > nmW) { while (nm.length > 1 && ctx.measureText(nm + '…').width > nmW) nm = nm.slice(0, -1); nm += '…'; }
+        ctx.fillText(nm, cx + 80, cy + rowH / 2);
+      }
       ctx.font = '700 14px system-ui, sans-serif';
       ctx.fillStyle = '#1B1F24';
       ctx.textAlign = 'right';
-      ctx.fillText('× ' + x.n, cx + cw - 10, cy + rowH / 2);
+      ctx.fillText((x.done ? '✓ ' : '') + '× ' + x.n, cx + cw - 12, cy + rowH / 2);
       ctx.textAlign = 'left';
-      hits.push({ x: cx - 4, y: cy, w: cw - 4, h: rowH, idx: x.idx });
+      if (x.done) {
+        ctx.strokeStyle = '#5B6470'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(cx + 24, cy + rowH / 2); ctx.lineTo(cx + cw - 16, cy + rowH / 2); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      const vy = Math.max(cy, area.y), vh = Math.min(cy + rowH, area.y + area.h) - vy;
+      if (vh > 8) hits.push({ type: 'leg', x: cx - 4, y: vy, w: cw - 4, h: vh, idx: x.idx, code: x.c.code });
     });
+    ctx.restore();
+    if (maxScroll > 0) {
+      // barre de défilement et fondu pour montrer qu'il y a une suite
+      const th = Math.max(30, area.h * area.h / contentH);
+      const ty = area.y + (area.h - th) * (st.legScroll / maxScroll);
+      ctx.fillStyle = 'rgba(27,31,36,0.12)';
+      PP.render.rr(ctx, area.x + area.w - 5, area.y, 5, area.h, 2.5); ctx.fill();
+      ctx.fillStyle = 'rgba(27,31,36,0.45)';
+      PP.render.rr(ctx, area.x + area.w - 5, ty, 5, th, 2.5); ctx.fill();
+      const fade = (y0, up) => {
+        const gr = ctx.createLinearGradient(0, y0, 0, y0 + (up ? 22 : -22));
+        gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = gr;
+        ctx.fillRect(area.x, up ? y0 : y0 - 22, area.w - 8, 22);
+      };
+      if (st.legScroll > 1) fade(area.y, true);
+      if (st.legScroll < maxScroll - 1) {
+        fade(area.y + area.h, false);
+        ctx.fillStyle = '#5B6470';
+        ctx.font = '600 12px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('▼ glisser pour voir la suite', area.x + area.w / 2, area.y + area.h - 7);
+        ctx.textAlign = 'left';
+      }
+    }
   }
 
   // ---------- Panneau ----------
@@ -531,6 +699,9 @@
     $('guideMode').querySelector('[data-v=color]').hidden = side;
     $('guideMode').querySelector('[data-v=row]').hidden = side;
     setSeg($('gOthers'), g.others || 'dim');
+    $('gOthersHint').textContent = side
+      ? 'S’applique quand une couleur est touchée dans la légende, et aux couleurs marquées finies.'
+      : g.mode === 'block' ? 'S’applique aux perles hors du bloc, à celles d’une autre couleur que celle touchée et aux couleurs finies.' : 'S’applique aux perles qui ne sont pas à poser maintenant.';
     setSeg($('gLabel'), g.label || 'auto');
     $('gCodes').checked = !!g.codes;
     $('gBright').value = g.bright || 100;
@@ -657,10 +828,12 @@
     $('gBlockDone').querySelector('span').textContent = done ? 'Posé ✓ (annuler)' : 'Bloc posé';
     $('gBlockDone').classList.toggle('on', done);
     $('gBlockProgress').textContent = ps.blocksDone.length + ' / ' + b.n + ' blocs posés';
-    const inB = (i, j) => { const [di, dj] = toDisplay(i, j, p); return di >= br.x0 && di < br.x1 && dj >= br.y0 && dj < br.y1; };
-    const list = colorsOf(p, inB);
+    const list = portionColors(p);
+    const nDone = list.filter((x) => x.done).length;
+    $('gBlockCount').textContent = 'Couleurs dans cette portion : ' + list.length + (nDone ? ' · ' + nDone + ' finie' + (nDone > 1 ? 's' : '') : '');
+    setSeg($('gSort'), sortMode());
     $('gBlockList').innerHTML = list.map((x) =>
-      '<li data-idx="' + x.idx + '" class="' + (st.highlight === x.idx ? 'cur' : '') + '">' +
+      '<li data-idx="' + x.idx + '" data-code="' + esc(x.c.code) + '" class="' + (st.highlight === x.idx ? 'cur' : '') + (x.done ? ' done' : '') + '">' +
       '<span class="gp-dot" style="background:' + x.c.hex + '"></span><b>' + esc(lbl(x.c)) + '</b><span class="gp-nm">' + esc(lbl(x.c) === x.c.code ? (x.c.name || '') : 'n° ' + x.c.code) + '</span><span class="gp-n">× ' + x.n + '</span><span class="gp-ok"></span></li>').join('');
   }
 
@@ -719,6 +892,7 @@
     } else if (mode === 'block') {
       ps.block = U.clamp(ps.block + dir, 0, blocks(p).n - 1);
       st.highlight = null;
+      resetSideView();
     } else return;
     A.saveProject();
     refreshPanel();
@@ -748,6 +922,7 @@
         if (k === ps.block) A.toast('Tous les blocs de ' + p.name + ' sont posés. Bravo !');
         ps.block = k;
         st.highlight = null;
+        resetSideView();
       }
     } else if (mode === 'row') { stepItem(1); return; }
     A.saveProject();
@@ -779,6 +954,82 @@
     else if (e.key.toLowerCase() === 'm') showPanel(!st.panel);
   }
 
+
+  // ---------- Gestes du mode « à côté » ----------
+  const inRect = (x, y, r) => r && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+  function zoomSide(f, px, py) {
+    const GA = st.gridArea;
+    if (!GA) return;
+    const z = st.zoom;
+    if (px == null) { px = GA.x + GA.w / 2; py = GA.y + GA.h / 2; }
+    const ns = U.clamp(z.s * f, 1, 6);
+    // le point sous le doigt reste en place
+    const kx = (px - GA.x - z.x) / z.s, ky = (py - GA.y - z.y) / z.s;
+    z.x = px - GA.x - kx * ns;
+    z.y = py - GA.y - ky * ns;
+    z.s = ns;
+    if (ns <= 1.001) { z.x = 0; z.y = 0; }
+    draw();
+  }
+  let lastGridTap = null;
+  function sideDown(e) {
+    canvas.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const z = st.zoom;
+    if (pointers.size === 2 && !st.locked) {
+      const [a, b] = Array.from(pointers.values());
+      gest = { type: 'spinch', d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, s0: z.s, last: 1 };
+      return;
+    }
+    if (pointers.size > 1) return;
+    const la = st.legArea;
+    const h = hits.find((r) => inRect(e.clientX, e.clientY, r));
+    if (h && h.type === 'sort') { gest = { type: 'tap', hit: h, sx: e.clientX, sy: e.clientY }; return; }
+    if (inRect(e.clientX, e.clientY, la)) { gest = { type: 'leg', hit: h, sx: e.clientX, sy: e.clientY, s0: st.legScroll || 0, moved: false }; return; }
+    if (st.locked) { gest = null; return; }
+    gest = { type: z.s > 1.01 ? 'span' : 'swipe', sx: e.clientX, sy: e.clientY, x0: z.x, y0: z.y, moved: false, inGrid: inRect(e.clientX, e.clientY, st.gridArea) };
+  }
+  function sideMove(e) {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (gest.type === 'spinch' && pointers.size >= 2) {
+      const [a, b] = Array.from(pointers.values());
+      const f = (Math.hypot(a.x - b.x, a.y - b.y) || 1) / gest.d0;
+      zoomSide(f / gest.last, (a.x + b.x) / 2, (a.y + b.y) / 2);
+      gest.last = f;
+      return;
+    }
+    const dx = e.clientX - gest.sx, dy = e.clientY - gest.sy;
+    if (Math.abs(dx) + Math.abs(dy) > 8) gest.moved = true;
+    if (gest.type === 'leg' && gest.moved) { st.legScroll = gest.s0 - dy; draw(); }
+    else if (gest.type === 'span' && gest.moved) { st.zoom.x = gest.x0 + dx; st.zoom.y = gest.y0 + dy; draw(); }
+  }
+  function sideEnd(e) {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    const g0 = gest;
+    if (pointers.size) { if (g0 && g0.type === 'spinch') gest = null; return; }
+    gest = null;
+    if (!g0 || e.type !== 'pointerup') return;
+    const dx = e.clientX - g0.sx, dy = e.clientY - g0.sy;
+    if (g0.type === 'tap' && Math.abs(dx) + Math.abs(dy) < 12) { if (g0.hit.type === 'sort') cycleSort(); return; }
+    if (g0.type === 'leg') {
+      if (!g0.moved && g0.hit && g0.hit.type === 'leg') legendTap(g0.hit.code, g0.hit.idx);
+      return;
+    }
+    if (g0.type === 'swipe') {
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) { stepItem(dx < 0 ? 1 : -1); return; }
+    }
+    // deux touchers sur la grille : zoom ×2,5 à cet endroit, ou retour à la vue entière
+    if (!g0.moved && g0.inGrid !== false && inRect(e.clientX, e.clientY, st.gridArea)) {
+      const now = performance.now();
+      if (lastGridTap && now - lastGridTap.t < 380 && Math.hypot(e.clientX - lastGridTap.x, e.clientY - lastGridTap.y) < 40) {
+        lastGridTap = null;
+        if (st.zoom.s > 1.01) { st.zoom = { s: 1, x: 0, y: 0 }; draw(); } else zoomSide(2.5, e.clientX, e.clientY);
+      } else lastGridTap = { t: now, x: e.clientX, y: e.clientY };
+    }
+  }
+
   // ---------- Gestes sur l'écran ----------
   const pointers = new Map();
   let gest = null;
@@ -788,14 +1039,8 @@
     new ResizeObserver(() => resize()).observe(canvas);
     canvas.addEventListener('pointerdown', (e) => {
       if (!st) return;
-      // « à côté » : toucher une couleur de la légende la fait ressortir ; glisser change de bloc
-      if (gs().view === 'side') {
-        const h = hits.find((z) => e.clientX >= z.x && e.clientX <= z.x + z.w && e.clientY >= z.y && e.clientY <= z.y + z.h);
-        if (h) { st.highlight = st.highlight === h.idx ? null : h.idx; refreshPanel(); return; }
-        gest = { type: 'swipe', sx: e.clientX, sy: e.clientY };
-        canvas.setPointerCapture(e.pointerId);
-        return;
-      }
+      // « à côté » : la légende défile et se touche ; la grille se zoome, se déplace, ou change de bloc d'un glissé
+      if (gs().view === 'side') { sideDown(e); return; }
       if (st.locked) return;
       canvas.setPointerCapture(e.pointerId);
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -810,7 +1055,7 @@
     });
     canvas.addEventListener('pointermove', (e) => {
       if (!st || !gest) return;
-      if (gest.type === 'swipe') return;
+      if (gs().view === 'side') { sideMove(e); return; }
       if (!pointers.has(e.pointerId)) return;
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (gest.type === 'pinch' && pointers.size >= 2) {
@@ -835,19 +1080,21 @@
       }
     });
     const end = (e) => {
-      if (gest && gest.type === 'swipe') {
-        const dx = e.clientX - gest.sx;
-        if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(e.clientY - gest.sy)) stepItem(dx < 0 ? 1 : -1);
-        gest = null;
-        return;
-      }
+      if (st && gs().view === 'side') { sideEnd(e); return; }
       pointers.delete(e.pointerId);
       if (!pointers.size) { if (gest) { A.saveSettings(); A.saveProject(); } gest = null; }
     };
     canvas.addEventListener('pointerup', end);
     canvas.addEventListener('pointercancel', end);
     canvas.addEventListener('wheel', (e) => {
-      if (!st || st.locked || gs().view === 'side') return;
+      if (st && gs().view === 'side') {
+        e.preventDefault();
+        const la = st.legArea;
+        if (la && inRect(e.clientX, e.clientY, la)) { st.legScroll = (st.legScroll || 0) + e.deltaY; draw(); return; }
+        if (st.gridArea && inRect(e.clientX, e.clientY, st.gridArea)) zoomSide(Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
+        return;
+      }
+      if (!st || st.locked) return;
       e.preventDefault();
       sizeBy(Math.exp(-e.deltaY * (e.shiftKey ? 0.002 : 0.0003)));
     }, { passive: false });
@@ -860,9 +1107,9 @@
     $('gMiniPrev').addEventListener('click', () => stepItem(-1));
     $('gMiniNext').addEventListener('click', () => stepItem(1));
     $('gMiniDone').addEventListener('click', toggleDone);
-    $('guidePlate').addEventListener('change', (e) => { st.plateId = e.target.value; gs().plateId = st.plateId; st.highlight = null; refreshPanel(); });
+    $('guidePlate').addEventListener('change', (e) => { st.plateId = e.target.value; gs().plateId = st.plateId; st.highlight = null; resetSideView(); refreshPanel(); });
     seg('gView', (v) => { gs().view = v; st.calib = false; st.placing = false; st.highlight = null; A.saveProject(); refreshPanel(); if (v === 'screen' && !cal().calibrated) startCalib(); });
-    seg('guideMode', (v) => { gs().mode = v; st.highlight = null; A.saveProject(); refreshPanel(); });
+    seg('guideMode', (v) => { gs().mode = v; st.highlight = null; resetSideView(); A.saveProject(); refreshPanel(); });
     seg('gOthers', (v) => { gs().others = v; refreshPanel(); });
     seg('gLabel', (v) => { gs().label = v; A.saveProject(); refreshPanel(); });
     seg('gCorner', (v) => {
@@ -875,9 +1122,15 @@
     $('gModel').addEventListener('change', (e) => { gs().model = e.target.value; A.saveProject(); refreshPanel(); if (!cal().calibrated) startCalib(); });
     $('gCodes').addEventListener('change', (e) => { gs().codes = e.target.checked; draw(); });
     $('gBright').addEventListener('input', (e) => { gs().bright = +e.target.value; $('gBrightOut').textContent = e.target.value + ' %'; draw(); });
-    $('gBlockSize').addEventListener('change', (e) => { gs().blockSize = +e.target.value; plateState(plate().id).blocksDone = []; plateState(plate().id).block = 0; A.saveProject(); refreshPanel(); });
+    $('gBlockSize').addEventListener('change', (e) => { resetSideView(); gs().blockSize = +e.target.value; plateState(plate().id).blocksDone = []; plateState(plate().id).block = 0; A.saveProject(); refreshPanel(); });
     $('gColorList').addEventListener('click', (e) => { const li = e.target.closest('li[data-code]'); if (li) { plateState(plate().id).color = li.dataset.code; refreshPanel(); } });
-    $('gBlockList').addEventListener('click', (e) => { const li = e.target.closest('li[data-idx]'); if (li) { st.highlight = st.highlight === +li.dataset.idx ? null : +li.dataset.idx; refreshPanel(); } });
+    $('gBlockList').addEventListener('click', (e) => { const li = e.target.closest('li[data-idx]'); if (li) legendTap(li.dataset.code, +li.dataset.idx); });
+    seg('gSort', (v) => { gs().legendSort = v; st.legScroll = 0; A.saveProject(); refreshPanel(); });
+    $('gZoomIn').addEventListener('click', () => zoomSide(1.4));
+    $('gZoomOut').addEventListener('click', () => zoomSide(1 / 1.4));
+    $('gZoomFit').addEventListener('click', () => { st.zoom = { s: 1, x: 0, y: 0 }; draw(); });
+    $('gSaveImg').addEventListener('click', () => A.saveProjectImage(false));
+    $('gShareImg').addEventListener('click', () => A.saveProjectImage(true));
     $('gPrev').addEventListener('click', () => stepItem(-1));
     $('gNext').addEventListener('click', () => stepItem(1));
     $('gDone').addEventListener('click', toggleDone);

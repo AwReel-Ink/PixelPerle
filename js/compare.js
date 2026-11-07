@@ -44,6 +44,7 @@
 
   // ---------- Ouverture ----------
   C.open = async function (variants, refineOf) {
+    if (st && st.kind === 'reduce') C.close();
     const pal = A.checkConvertible();
     if (!pal) return;
     const sig = sigNow(pal);
@@ -54,6 +55,7 @@
     if (!st) {
       st = { per: A.settings.cmpPer || defaultPer(), view: null, selected: null };
     }
+    st.kind = 'render';
     st.pal = pal;
     st.colors = pal.colors.map((c) => ({ code: c.code, name: c.name, hex: c.hex }));
     st.rgb = st.colors.map((c) => U.hexToRgb(c.hex) || [0, 0, 0]);
@@ -82,6 +84,7 @@
       st.selected = st.items.some((it) => it.key === want) ? want : null;
     }
     if (first) show();
+    else setMode();
     buildCards();
     if (!keepView) st.view = null;
     syncToolbar();
@@ -133,10 +136,91 @@
     }
   };
 
+
+  // ---------- Limiter le nombre de couleurs ----------
+  C.openReduce = function () {
+    if (!A.hasResult()) { A.toast('Lancez d’abord la conversion.', 'error'); return; }
+    if (st) C.close();
+    const r = A.project.result;
+    st = { kind: 'reduce', per: A.settings.cmpPer || defaultPer(), view: null, selected: null, smooth: A.settings.reduceSmooth == null ? 1 : A.settings.reduceSmooth };
+    st.colors = r.colors;
+    st.rgb = st.colors.map((c) => U.hexToRgb(c.hex) || [0, 0, 0]);
+    st.plates = A.project.plates.map((p) => ({ id: p.id, name: p.name, x: p.x, y: p.y, w: p.w, h: p.h }));
+    st.bb = PP.geo.bboxOf(st.plates);
+    st.base = A.reduce.prepare(r, st.plates);
+    st.stock = A.reduce.stockFor(r);
+    st.seq = A.reduce.sequence(st.base, st.stock);
+    st.N = st.base.used.length;
+    if (st.N <= 2) { st = null; A.toast('Ce rendu n’utilise déjà que deux couleurs au plus.'); return; }
+    buildReduceItems(null);
+    show();
+    buildCards();
+    syncToolbar();
+    layoutCards();
+  };
+
+  function buildReduceItems(prev) {
+    const N = st.N;
+    const items = [];
+    const seen = new Set();
+    const cur = A.reduce.render(st.base, st.seq.get(N), 0);
+    items.push(Object.assign({ key: 'cur', target: N, label: 'Actuel · ' + N + ' couleurs', sub: 'rendu choisi, sans changement', order: 0 }, cur));
+    const ks = (st.smooth ? [N] : []).concat(A.reduce.targets(N));
+    ks.forEach((k) => {
+      const a = st.seq.get(k);
+      if (!a) return;
+      const res = A.reduce.render(st.base, a, st.smooth);
+      if (k === N && !res.changed) return; // rien à lisser
+      if (seen.has(res.used) && !(k === N && res.used === N)) return; // le lissage a déjà fait disparaître une couleur : rendu en double
+      seen.add(res.used);
+      const d = N - res.used;
+      items.push(Object.assign({
+        key: 'k' + k, target: k, order: items.length,
+        label: res.used + ' couleur' + (res.used > 1 ? 's' : '') + (k === N && res.used === N ? ' · lissé' : ''),
+        sub: d > 0 ? d + ' couleur' + (d > 1 ? 's' : '') + ' en moins' : 'mêmes couleurs, aplats lissés',
+      }, res));
+    });
+    items.forEach((it) => {
+      const p = prev && prev.get(it.key);
+      it.status = 'done';
+      it.checked = p ? p.checked : true;
+      it.uncheckedAt = p ? p.uncheckedAt : 0;
+      it.cache = new Map();
+      it.mode = 'reduce';
+    });
+    st.items = items;
+    if (!items.some((x) => x.key === st.selected)) st.selected = null;
+  }
+
+  function setSmooth(v) {
+    if (!st || st.kind !== 'reduce') return;
+    st.smooth = v;
+    A.settings.reduceSmooth = v;
+    A.saveSettings();
+    const prev = new Map(st.items.map((it) => [it.key, it]));
+    const strip = $('cmpStrip');
+    const sl = strip.scrollLeft;
+    buildReduceItems(prev);
+    buildCards();
+    syncToolbar();
+    sizeCanvases();
+    drawAll();
+    strip.scrollLeft = sl;
+  }
+
+  function setMode() {
+    const red = st && st.kind === 'reduce';
+    $('cmpTitle').textContent = red ? 'Limiter le nombre de couleurs' : 'Choisissez votre rendu';
+    $('cmpSmooth').hidden = !red;
+    $('cmpRefine').hidden = red;
+    if (red) $('cmpBase').hidden = true;
+  }
+
   function show() {
     $('toasts').innerHTML = '';
     const el = $('compare');
     el.hidden = false;
+    setMode();
     document.documentElement.classList.add('cmp-open');
     document.addEventListener('keydown', onKey, true);
   }
@@ -158,7 +242,7 @@
     strip.innerHTML = st.items.map((it) =>
       '<article class="cmp-card" data-key="' + it.key + '">' +
       '<header class="cmp-head"><span class="cmp-label">' + esc(it.label) + '</span>' +
-      (it.mode === 'dominant' ? '<span class="cmp-sub">contours nets</span>' : it.mode === 'best' ? '<span class="cmp-sub">' + esc(it.sub || 'règles du Rendu Auto') + '</span>' : '') +
+      (it.mode === 'reduce' ? '<span class="cmp-sub">' + esc(it.sub || '') + '</span>' : it.mode === 'dominant' ? '<span class="cmp-sub">contours nets</span>' : it.mode === 'best' ? '<span class="cmp-sub">' + esc(it.sub || 'règles du Rendu Auto') + '</span>' : '') +
       '<label class="cmp-check" title="Garder ce rendu dans la comparaison"><input type="checkbox"' + (it.checked ? ' checked' : '') + ' aria-label="Garder « ' + esc(it.label) + ' »"></label></header>' +
       '<div class="cmp-view"><canvas></canvas></div>' +
       '<footer class="cmp-foot"></footer></article>').join('');
@@ -176,7 +260,11 @@
     const f = it.el.querySelector('.cmp-foot');
     if (it.status === 'pending') f.textContent = 'Calcul en cours…';
     else if (it.status === 'error') f.textContent = 'Échec : ' + (it.error || 'erreur inconnue');
-    else {
+    else if (st.kind === 'reduce') {
+      const short = A.reduce.shortage(it.counts, st.stock, st.colors);
+      f.innerHTML = '<b>' + it.used + '</b> couleur' + (it.used > 1 ? 's' : '') + ' · <b>' + U.fmtInt(it.changed) + '</b> perle' + (it.changed > 1 ? 's' : '') + ' changée' + (it.changed > 1 ? 's' : '') +
+        ' · ' + U.fmtInt(it.isolated) + ' isolée' + (it.isolated > 1 ? 's' : '') + (short ? '<br><span class="cmp-stock">Stock insuffisant : ' + esc(short) + '</span>' : '');
+    } else {
       const note = A.stockNote(it.stockInfo, st.colors);
       f.innerHTML = '<b>' + it.used + '</b> couleur' + (it.used > 1 ? 's' : '') + ' · <b>' + U.fmtInt(it.isolated) + '</b> perle' + (it.isolated > 1 ? 's' : '') + ' isolée' + (it.isolated > 1 ? 's' : '') +
         (note ? '<br><span class="cmp-stock">Stock restant : ' + esc(note) + '</span>' : '');
@@ -268,6 +356,7 @@
     const done = st.items.filter((x) => x.status !== 'pending').length;
     const on = st.items.filter((x) => x.checked).length;
     const par = PP.convert.usesWorkers ? ' en parallèle (' + PP.convert.poolSize() + ' cœurs)' : '';
+    if (st.kind === 'reduce') { el.textContent = 'Fusion des couleurs proches · ' + st.items.length + ' propositions' + (st.selected ? '' : ' · touchez celle qui vous plaît'); return; }
     if (done < st.items.length) el.textContent = 'Calcul' + par + ' : ' + done + ' / ' + st.items.length;
     else el.textContent = st.items.length + ' rendus' + (on < st.items.length ? ' · ' + on + ' gardé' + (on > 1 ? 's' : '') : '') + (st.selected ? '' : ' · touchez un rendu pour le choisir');
   }
@@ -279,11 +368,12 @@
     const rb = $('cmpRefine');
     rb.disabled = !sel || sel.mode !== 'mean';
     rb.querySelector('span').textContent = sel && sel.mode === 'mean' ? 'Affiner autour de ' + sel.dither + ' %' : 'Affiner';
-    $('cmpBase').hidden = st.refineOf === null;
+    $('cmpBase').hidden = st.kind === 'reduce' || st.refineOf === null;
+    $('cmpSmooth').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.v === st.smooth)));
     const v = $('cmpValidate');
     const target = selectedOrOnly();
     v.disabled = !target || target.status !== 'done';
-    v.querySelector('span').textContent = target ? 'Valider « ' + target.label + ' »' : 'Valider';
+    v.querySelector('span').textContent = target ? (st.kind === 'reduce' && target.key === 'cur' ? 'Garder l’actuel' : 'Valider « ' + target.label + ' »') : 'Valider';
     $('cmpRecheck').disabled = st.items.every((x) => x.checked);
     setStatus();
   }
@@ -346,6 +436,14 @@
       return;
     }
     const s = st;
+    if (s.kind === 'reduce') {
+      if (it.key !== 'cur') {
+        const n = A.reduce.apply(it);
+        A.toast(n ? 'Couleurs limitées à ' + it.used + ' (' + U.fmtInt(n) + ' perles changées). Ctrl+Z ou « Annuler » pour revenir.' : 'Aucun changement.');
+      }
+      C.close();
+      return;
+    }
     const ok = await A.applyVariant(it.key === 'best' ? it.autoItem : it, s.colors, s.pal.name);
     if (ok && st === s) C.close();
   }
@@ -465,6 +563,10 @@
       syncToolbar();
       layoutCards();
       setTimeout(() => { if (st && st.selected) scrollToItem(st.selected); }, 80);
+    });
+    $('cmpSmooth').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-v]');
+      if (b) setSmooth(+b.dataset.v);
     });
     $('cmpZoomIn').addEventListener('click', () => st && zoomAt(st.cw / 2, st.ch / 2, 1.3));
     $('cmpZoomOut').addEventListener('click', () => st && zoomAt(st.cw / 2, st.ch / 2, 1 / 1.3));

@@ -125,6 +125,11 @@
     A.setSaveState(db.available ? 'Enregistré' : 'Non enregistré');
     if (firstRun) A.toast('Bienvenue ! Un exemple est chargé : appuyez sur « Conversion » pour voir le résultat.');
 
+    // application installée sur l'écran d'accueil : on demande au navigateur de ne jamais vider ses données
+    try {
+      if ((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone) PP.db.persist();
+    } catch (e) { /* ignore */ }
+
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !window.PP_EMBEDDED) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     }

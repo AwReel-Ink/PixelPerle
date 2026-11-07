@@ -329,6 +329,11 @@
           <div class="swatches" id="swatches"></div>
         </div>
         <div class="group">
+          <div class="group-head"><h3>Moins de couleurs</h3><span class="count" id="reduceCount"></span></div>
+          <p class="hint">Moins de changements de perles, ou un modèle plus simple pour un enfant : les couleurs proches sont fusionnées et les aplats regroupés. Vous comparez les versions avant de choisir.</p>
+          <button class="btn btn-primary" id="reduceBtn" type="button"><svg class="ic"><use href="#i-palette"/></svg>Limiter le nombre de couleurs</button>
+        </div>
+        <div class="group">
           <div class="group-head"><h3>Affichage</h3></div>
           <label class="check"><input type="checkbox" id="viewBeads"><span>Rendu perles (rondes, avec le trou)</span></label>
           <label class="check"><input type="checkbox" id="viewCodes" checked><span>Codes dans les perles (en zoomant)</span></label>
@@ -391,6 +396,7 @@
           </div>
           <div class="progress" id="expProgress" hidden><span></span></div>
           <p class="hint" id="expStatus"></p>
+          <p class="hint">La vue d’ensemble contient aussi tout le projet : ouverte depuis <b>Projets › Ouvrir un fichier</b>, elle le restaure.</p>
         </div>
         <div class="group">
           <div class="group-head"><h3>Plaques</h3></div>
@@ -460,7 +466,7 @@
 
 <div class="cmp" id="compare" hidden>
   <div class="cmp-bar">
-    <div class="cmp-title"><h2>Choisissez votre rendu</h2><span class="cmp-status" id="cmpStatus"></span></div>
+    <div class="cmp-title"><h2 id="cmpTitle">Choisissez votre rendu</h2><span class="cmp-status" id="cmpStatus"></span></div>
     <div class="cmp-tools">
       <div class="seg seg-sm" id="cmpPer" role="radiogroup" aria-label="Rendus par écran" title="Rendus par écran">
         <button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button>
@@ -470,6 +476,9 @@
         <span id="cmpZoom" class="hud-zoom">100 %</span>
         <button class="icon-btn" id="cmpZoomIn" type="button" title="Zoomer toutes les vues (+)"><svg class="ic"><use href="#i-plus"/></svg></button>
         <button class="icon-btn" id="cmpFit" type="button" title="Tout afficher (0)"><svg class="ic"><use href="#i-fit"/></svg></button>
+      </div>
+      <div class="seg seg-sm" id="cmpSmooth" role="radiogroup" aria-label="Lissage des aplats" title="Regroupe les perles presque seules dans la couleur proche qui les entoure" hidden>
+        <span class="seg-cap">Aplats</span><button type="button" data-v="0">Bruts</button><button type="button" data-v="1">Lissés</button><button type="button" data-v="2">Très lissés</button>
       </div>
       <button class="btn btn-sm" id="cmpRecheck" type="button"><svg class="ic"><use href="#i-check"/></svg>Tout recocher</button>
       <button class="btn btn-sm" id="cmpRefine" type="button" title="Calcule les rendus de 2 en 2 % autour du rendu choisi"><svg class="ic"><use href="#i-sparkle"/></svg><span>Affiner</span></button>
@@ -490,6 +499,12 @@
 
 <div class="guide" id="guide" hidden>
   <canvas id="guideCanvas" aria-label="Modèle de pose"></canvas>
+  <div class="g-zoom" id="gZoom" hidden>
+    <button class="gm-btn" id="gZoomOut" type="button" title="Dézoomer la grille"><svg class="ic"><use href="#i-minus"/></svg></button>
+    <span id="gZoomVal">100 %</span>
+    <button class="gm-btn" id="gZoomIn" type="button" title="Zoomer la grille (ou deux touchers sur la grille, ou pincer)"><svg class="ic"><use href="#i-plus"/></svg></button>
+    <button class="gm-btn" id="gZoomFit" type="button" title="Revoir tout le bloc"><svg class="ic"><use href="#i-fit"/></svg></button>
+  </div>
   <div class="guide-mini" id="gMini" hidden>
     <button class="gm-btn" id="gMiniMenu" type="button" title="Ouvrir le menu"><svg class="ic"><use href="#i-panel"/></svg></button>
     <button class="gm-btn" id="gMiniLock" type="button" title="Verrouiller le tactile"><svg class="ic"><use href="#i-unlock"/></svg></button>
@@ -558,7 +573,11 @@
         <div class="gp-row"><span class="gp-small" id="gBlockProgress"></span>
           <label class="gp-inline"><span class="gp-small">Bloc de</span><select id="gBlockSize"><option value="8">8 × 8</option><option value="10">10 × 10</option><option value="13">13 × 13</option><option value="16">16 × 16</option></select></label>
         </div>
-        <p class="gp-small">Légende du bloc : touchez une couleur pour la faire ressortir.</p>
+        <p class="gp-count" id="gBlockCount"></p>
+        <div class="field"><span class="label">Trier la légende</span>
+          <div class="seg" id="gSort" role="radiogroup"><button type="button" data-v="desc" title="Les couleurs les plus nombreuses d’abord">Quantité ↓</button><button type="button" data-v="asc">Quantité ↑</button><button type="button" data-v="name" title="Pratique pour préparer les perles à l’avance">Nom</button></div>
+        </div>
+        <p class="gp-small">Touchez une couleur pour la faire ressortir ; touchez-la deux fois pour la marquer finie (grisée, en fin de liste).</p>
         <ul class="gp-colors" id="gBlockList"></ul>
       </div>
     </div>
@@ -595,12 +614,20 @@
     </div>
     <div class="gp-sec">
       <h3>Affichage</h3>
-      <div class="seg" id="gOthers" role="radiogroup"><button type="button" data-v="dim">Autres perles atténuées</button><button type="button" data-v="hide">Masquées</button></div>
+      <div class="field"><span class="label">Perles hors sélection et couleurs finies</span>
+        <div class="seg" id="gOthers" role="radiogroup"><button type="button" data-v="dim" title="Encore visibles, en très pâle">Atténuées</button><button type="button" data-v="hide" title="Remplacées par une case grise vide">Masquées</button></div>
+      </div>
+      <p class="gp-small" id="gOthersHint"></p>
       <div class="field"><span class="label">Libellé des perles</span>
         <div class="seg" id="gLabel" role="radiogroup"><button type="button" data-v="auto" title="Le nom quand c'est une référence (C15), sinon le code">Automatique</button><button type="button" data-v="name">Nom</button><button type="button" data-v="code">Code</button></div>
       </div>
       <label class="check"><input type="checkbox" id="gCodes"><span>Écrire le libellé dans les perles</span></label>
       <label class="field"><span class="label">Luminosité <output id="gBrightOut"></output></span><input type="range" id="gBright" min="30" max="100" value="100"></label>
+    </div>
+    <div class="gp-sec">
+      <h3>Image du projet</h3>
+      <p class="gp-small">Le modèle avec sa légende, qui contient aussi tout le projet : de quoi le retrouver si le navigateur s’efface, ou l’envoyer à quelqu’un.</p>
+      <div class="gp-row gp-wrap"><button class="btn btn-sm" id="gSaveImg" type="button"><svg class="ic"><use href="#i-export"/></svg>Enregistrer</button><button class="btn btn-sm" id="gShareImg" type="button">Partager…</button></div>
     </div>
     <div class="gp-sec">
       <button class="btn gp-lock" id="gLock" type="button"><svg class="ic"><use href="#i-unlock"/></svg><span>Verrouiller le tactile</span></button>
@@ -624,6 +651,7 @@
 <script src="js/app-stage.js"></script>
 <script src="js/app-panels.js"></script>
 <script src="js/auto.js"></script>
+<script src="js/reduce.js"></script>
 <script src="js/compare.js"></script>
 <script src="js/guide.js"></script>
 <script src="js/detect.js"></script>

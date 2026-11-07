@@ -659,47 +659,158 @@
     return v.mode === 'dominant' ? 'Dominante' : v.dither === 0 ? 'Sans tramage' : 'Tramage ' + v.dither + ' %';
   };
 
-  // ---------- Sauvegarde complète ----------
+  // ---------- Sauvegardes ----------
+  A.APP_VERSION = '2.6.0';
+
+  async function serializeProject(p) {
+    const q = Object.assign({}, p);
+    if (p.image) q.image = Object.assign({}, p.image, { blob: p.image.blob ? await U.blobToDataURL(p.image.blob) : null });
+    if (p.result) q.result = Object.assign({}, p.result, { grids: Object.fromEntries(Object.entries(p.result.grids).map(([k, v]) => [k, Array.from(v)])) });
+    return q;
+  }
+  async function deserializeProject(q) {
+    if (q.image && typeof q.image.blob === 'string') q.image.blob = await U.dataURLToBlob(q.image.blob);
+    return normalizeProject(q);
+  }
+  async function serializePalette(pal, withPhoto) {
+    return Object.assign({}, pal, { photo: withPhoto && pal.photo ? await U.blobToDataURL(pal.photo) : null });
+  }
+  async function reloadPalettes() {
+    A.palettes = (await db.getAll('palettes')).sort((a, b) => U.naturalCompare(a.name, b.name));
+  }
+  const stamp = () => { const d = new Date(); return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0'); };
+
   A.exportBackup = async function () {
     const projects = await A.listProjects();
-    const out = { format: 'pixel-perles-sauvegarde', version: 1, date: new Date().toISOString(), palettes: [], projects: [] };
-    for (const pal of A.palettes) {
-      out.palettes.push(Object.assign({}, pal, { photo: pal.photo ? await U.blobToDataURL(pal.photo) : null }));
-    }
-    for (const p of projects) {
-      const q = Object.assign({}, p);
-      if (p.image) q.image = Object.assign({}, p.image, { blob: p.image.blob ? await U.blobToDataURL(p.image.blob) : null });
-      if (p.result) q.result = Object.assign({}, p.result, { grids: Object.fromEntries(Object.entries(p.result.grids).map(([k, v]) => [k, Array.from(v)])) });
-      out.projects.push(q);
-    }
+    const out = { format: 'pixel-perles-sauvegarde', version: 1, app: A.APP_VERSION, date: new Date().toISOString(), palettes: [], projects: [] };
+    for (const pal of A.palettes) out.palettes.push(await serializePalette(pal, true));
+    for (const p of projects) out.projects.push(await serializeProject(p));
     const blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
-    const d = new Date();
-    const name = 'pixel-perles-sauvegarde-' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '.json';
-    const r = await PP.files.saveFile(name, blob);
+    const r = await PP.files.saveFile('pixel-perles-sauvegarde-' + stamp() + '.json', blob);
     if (r === 'saved') A.toast('Sauvegarde exportée.');
   };
 
-  A.importBackup = async function (file) {
-    let data;
-    try { data = JSON.parse(await file.text()); } catch (e) { A.toast('Ce fichier n’est pas une sauvegarde lisible.', 'error'); return; }
-    if (!data || data.format !== 'pixel-perles-sauvegarde') { A.toast('Ce fichier n’est pas une sauvegarde Pixel Perles.', 'error'); return; }
+  async function importBackupData(data) {
     let np = 0, nl = 0;
     for (const pal of data.palettes || []) {
       if (pal.photo) pal.photo = await U.dataURLToBlob(pal.photo);
       await db.put('palettes', pal); nl++;
     }
     for (const p of data.projects || []) {
-      if (p.image && p.image.blob) p.image.blob = await U.dataURLToBlob(p.image.blob);
-      normalizeProject(p);
-      await db.put('projects', p); np++;
+      await db.put('projects', await deserializeProject(p)); np++;
     }
-    A.palettes = (await db.getAll('palettes')).sort((a, b) => U.naturalCompare(a.name, b.name));
+    await reloadPalettes();
     A.toast(np + ' projet(s) et ' + nl + ' palette(s) restaurés.');
     if (A.project) {
       const fresh = await db.get('projects', A.project.id);
       if (fresh) await A.setProject(normalizeProject(fresh));
     }
     A.panels.refresh();
+  }
+
+  A.importBackup = async function (file) {
+    let data;
+    try { data = JSON.parse(await file.text()); } catch (e) { A.toast('Ce fichier n’est pas une sauvegarde lisible.', 'error'); return; }
+    if (!data || data.format !== 'pixel-perles-sauvegarde') { A.toast('Ce fichier n’est pas une sauvegarde Pixel Perles.', 'error'); return; }
+    await importBackupData(data);
+  };
+
+  // Image d'un projet sans conversion : une simple carte avec son nom
+  async function cardPNG(p) {
+    const c = document.createElement('canvas');
+    c.width = 1200; c.height = 630;
+    const x = c.getContext('2d');
+    x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, c.width, c.height);
+    try {
+      if (A.imgSrc) {
+        const iw = A.imgSrc.width, ih = A.imgSrc.height, s = Math.min(520 / iw, 520 / ih);
+        x.drawImage(A.imgSrc, 640 + (520 - iw * s) / 2, 55 + (520 - ih * s) / 2, iw * s, ih * s);
+      }
+    } catch (e) { /* image indisponible */ }
+    x.fillStyle = '#1B1F24';
+    x.font = '700 56px system-ui, sans-serif';
+    x.fillText(p.name.slice(0, 22), 60, 150);
+    x.font = '500 30px system-ui, sans-serif';
+    x.fillStyle = '#5B6470';
+    x.fillText('Projet Pixel Perles · pas encore converti', 60, 210);
+    x.fillText(new Date().toLocaleDateString('fr-FR'), 60, 260);
+    return new Promise((res) => c.toBlob(res, 'image/png'));
+  }
+
+  /** Image du modèle (vue d'ensemble + légende) qui contient aussi tout le projet, pour le restaurer ou le partager. */
+  A.projectPayload = async function (p) {
+    p = p || A.project;
+    const pal = A.palettes.find((x) => x.id === p.conv.paletteId);
+    return JSON.stringify({
+      format: 'pixel-perles-projet', version: 1, app: A.APP_VERSION, date: new Date().toISOString(),
+      project: await serializeProject(p),
+      palette: pal ? await serializePalette(pal, false) : null,
+    });
+  };
+  A.projectImage = async function (p) {
+    p = p || A.project;
+    const payload = await A.projectPayload(p);
+    let png;
+    if (p.result) {
+      const o = Object.assign({}, p.exp, { bg: 'white', minSide: 1800 });
+      const lay = PP.render.overviewLayout(p.plates, p.result.grids, p.result.colors, o, { project: p.name, date: new Date().toLocaleDateString('fr-FR'), index: 0, total: p.plates.length });
+      png = await PP.files.encodePNG(lay.width, lay.height, lay.draw);
+    } else png = await cardPNG(p);
+    const blob = await PP.files.embedInPNG(png, payload);
+    return { blob, name: U.safeFileName(p.name) + '_projet-' + stamp() + '.png' };
+  };
+
+  /** Enregistre (ou partage) l'image-sauvegarde du projet ouvert. */
+  A.saveProjectImage = async function (share) {
+    if (!A.project) return;
+    await A.saveProjectNow();
+    A.toast('Préparation de l’image du projet…');
+    try {
+      const { blob, name } = await A.projectImage();
+      const r = share ? await PP.files.shareFile(name, blob, A.project.name) : await PP.files.saveFile(name, blob);
+      if (r === 'saved' || r === 'shared') {
+        A.project.fileSaved = Date.now();
+        A.saveProject();
+        A.toast(r === 'shared' ? 'Image du projet partagée.' : 'Image du projet enregistrée : ' + name + ' (' + (blob.size / 1048576).toFixed(1) + ' Mo). Ouvrez-la avec « Projets › Ouvrir un fichier » pour retrouver le projet.');
+      }
+    } catch (e) {
+      console.error(e);
+      A.toast(e.message || 'Impossible de préparer l’image du projet.', 'error');
+    }
+  };
+
+  /** Ouvre une image-sauvegarde (.png), un projet ou une sauvegarde complète (.json). */
+  A.openFile = async function (file) {
+    if (!file) return;
+    let text = null;
+    const isPng = file.type === 'image/png' || /\.png$/i.test(file.name || '');
+    try {
+      text = isPng ? await PP.files.readFromPNG(file) : await file.text();
+    } catch (e) { text = null; }
+    if (!text) {
+      A.toast(isPng
+        ? 'Cette image ne contient pas de projet Pixel Perles. Une image passée par une messagerie (WhatsApp, Messenger, SMS…) est souvent recompressée : envoyez-la plutôt comme fichier (Fichiers, AirDrop, e-mail).'
+        : 'Fichier illisible.', 'error');
+      return;
+    }
+    let data;
+    try { data = JSON.parse(text); } catch (e) { A.toast('Ce fichier n’est pas un projet lisible.', 'error'); return; }
+    if (data && data.format === 'pixel-perles-sauvegarde') { await importBackupData(data); return; }
+    if (!data || data.format !== 'pixel-perles-projet' || !data.project) { A.toast('Ce fichier n’est pas un projet Pixel Perles.', 'error'); return; }
+    if (data.palette && data.palette.id && !(await db.get('palettes', data.palette.id))) {
+      await db.put('palettes', Object.assign({}, data.palette, { photo: null }));
+      await reloadPalettes();
+    }
+    const p = await deserializeProject(data.project);
+    if (await db.get('projects', p.id)) {
+      // le projet existe encore ici : on garde les deux, rien n'est écrasé
+      p.id = U.uid();
+      p.name = p.name + ' (restauré)';
+    }
+    p.updated = Date.now();
+    await db.put('projects', p);
+    await A.setProject(p);
+    A.toast('Projet « ' + p.name + ' » ouvert' + (data.date ? ', tel qu’enregistré le ' + new Date(data.date).toLocaleDateString('fr-FR') : '') + '.');
   };
 
   A.resetAll = async function () {

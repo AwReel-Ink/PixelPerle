@@ -216,5 +216,68 @@
     });
   }
 
-  PP.files = { encodePNG, makeZip, saveFile, pickFile, downloadsCap };
+
+  // ---------- Projet caché dans un PNG (bloc privé « ppSv », ignoré par les visionneuses) ----------
+  const PROJECT_CHUNK = 'ppSv';
+  async function streamBytes(bytes, stream) {
+    const out = await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer();
+    return new Uint8Array(out);
+  }
+  async function deflate(bytes) {
+    if (typeof CompressionStream === 'undefined') return null;
+    return streamBytes(bytes, new CompressionStream('deflate'));
+  }
+  async function inflate(bytes) {
+    return streamBytes(bytes, new DecompressionStream('deflate'));
+  }
+  /** Ajoute au PNG un bloc contenant le texte (JSON) donné, compressé si possible. */
+  async function embedInPNG(pngBlob, text) {
+    const raw = enc.encode(text);
+    const z = await deflate(raw);
+    // 1 octet d'en-tête : 1 = compressé (zlib), 0 = brut
+    const data = new Uint8Array(1 + (z ? z.length : raw.length));
+    data[0] = z ? 1 : 0;
+    data.set(z || raw, 1);
+    const buf = new Uint8Array(await pngBlob.arrayBuffer());
+    const iend = buf.length - 12; // le bloc IEND fait toujours 12 octets et termine le fichier
+    return new Blob([buf.subarray(0, iend), pngChunk(PROJECT_CHUNK, data), buf.subarray(iend)], { type: 'image/png' });
+  }
+  /** Relit le texte caché dans un PNG ; null s'il n'y en a pas (image recompressée par une messagerie, par exemple). */
+  async function readFromPNG(blob) {
+    const buf = new Uint8Array(await blob.arrayBuffer());
+    const sig = [137, 80, 78, 71, 13, 10, 26, 10];
+    if (buf.length < 8 || sig.some((v, i) => buf[i] !== v)) return null;
+    const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    let o = 8;
+    while (o + 12 <= buf.length) {
+      const len = dv.getUint32(o);
+      const type = String.fromCharCode(buf[o + 4], buf[o + 5], buf[o + 6], buf[o + 7]);
+      if (type === PROJECT_CHUNK) {
+        const data = buf.subarray(o + 8, o + 8 + len);
+        const body = data.subarray(1);
+        const bytes = data[0] === 1 ? await inflate(body) : body;
+        return new TextDecoder().decode(bytes);
+      }
+      if (type === 'IEND') break;
+      o += 12 + len;
+    }
+    return null;
+  }
+
+  /** Partage (feuille de partage du système) si possible, sinon enregistrement classique. */
+  async function shareFile(filename, blob, title) {
+    try {
+      const file = new File([blob], filename, { type: blob.type });
+      if (navigator.canShare && navigator.share && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: title || filename });
+        return 'shared';
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return 'declined';
+      // partage refusé par le navigateur : on enregistre le fichier à la place
+    }
+    return saveFile(filename, blob);
+  }
+
+  PP.files = { encodePNG, makeZip, saveFile, pickFile, downloadsCap, embedInPNG, readFromPNG, shareFile };
 })();

@@ -747,3 +747,21 @@ kbd { font-family: var(--f-mono); font-size: 0.85em; padding: 1px 5px; border: 1
 .gp-scale span { text-align: center; font-family: var(--f-mono); font-size: var(--fs-xs); color: var(--g-ink-2); }
 .guide-panel .btn:disabled { opacity: 0.35; }
 .gp-lock { margin-bottom: 4px; }
+
+/* ---------- v2.6 : limiter les couleurs ---------- */
+#cmpSmooth { align-items: center; }
+#cmpSmooth button { font-family: inherit; padding: 0 8px; }
+.seg-cap { font-size: 12px; color: var(--ink-2); padding: 0 6px 0 4px; white-space: nowrap; }
+.about { margin: 18px 0 0; font-size: 12px; color: var(--ink-2); text-align: center; line-height: 1.5; }
+.proj-save { margin-top: 14px; }
+
+/* ---------- v2.6 : pose guidée, zoom et légende ---------- */
+.g-zoom { position: absolute; z-index: 3; display: flex; align-items: center; gap: 6px; height: 44px; }
+.g-zoom .gm-btn { width: 44px; height: 44px; min-height: 44px; background: #EEF0F3; color: #1B1F24; border: 1px solid #D5D9DF; }
+.g-zoom .gm-btn:disabled { opacity: 0.4; }
+.g-zoom span { min-width: 48px; text-align: center; font: 600 13px system-ui, sans-serif; color: #1B1F24; font-variant-numeric: tabular-nums; }
+.gp-count { font-weight: 700; margin: 6px 0; }
+.gp-colors li.done { opacity: 0.45; }
+.gp-colors li.done b, .gp-colors li.done .gp-nm { text-decoration: line-through; }
+.gp-colors li.done .gp-ok::after { content: "✓"; }
+.gp-colors li { user-select: none; -webkit-user-select: none; touch-action: manipulation; }

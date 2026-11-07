@@ -892,6 +892,7 @@
     $('viewOverlay').addEventListener('change', (e) => { P().disp.overlay = e.target.checked; A.touch(); });
     $('replBtn').addEventListener('click', replaceColor);
     $('cleanBtn').addEventListener('click', cleanIsolated);
+    $('reduceBtn').addEventListener('click', () => A.compare.openReduce());
   }
 
   function usageAll() {
@@ -957,6 +958,8 @@
     $('replTo').innerHTML = all.map(opt).join('');
     if (used.includes(+fromVal)) $('replFrom').value = fromVal;
     if (toVal !== '') $('replTo').value = toVal;
+    $('reduceCount').textContent = used.length + ' couleur' + (used.length > 1 ? 's' : '');
+    $('reduceBtn').disabled = used.length <= 2;
     $('editStats').textContent = U.fmtInt(u.total) + ' perles · ' + used.length + ' couleur' + (used.length > 1 ? 's' : '') + ' · ' + U.fmtInt(u.empty) + ' picot' + (u.empty > 1 ? 's' : '') + ' vide' + (u.empty > 1 ? 's' : '') + '. Palette : ' + (r.paletteName || '—') + (r.variant ? ' · rendu ' + A.variantLabel(r.variant).toLowerCase() : '') + '.';
     panels.syncChrome();
     panels.refreshExport();
@@ -1114,7 +1117,8 @@
       if (zip) {
         const lay = PP.render.overviewLayout(P().plates, r.grids, r.colors, o, exportMeta(0, P().plates.length));
         status.textContent = 'Préparation de la vue d’ensemble…';
-        const blob = await PP.files.encodePNG(lay.width, lay.height, lay.draw, (f) => panels.setProgress('expProgress', (plates.length + f) / (plates.length + 1)));
+        let blob = await PP.files.encodePNG(lay.width, lay.height, lay.draw, (f) => panels.setProgress('expProgress', (plates.length + f) / (plates.length + 1)));
+        blob = await PP.files.embedInPNG(blob, await A.projectPayload());
         files.push({ name: U.safeFileName(P().name) + '_00_vue-ensemble.png', data: blob });
         status.textContent = 'Création de l’archive…';
         const z = await PP.files.makeZip(files);
@@ -1144,7 +1148,8 @@
     try {
       const lay = PP.render.overviewLayout(P().plates, r.grids, r.colors, P().exp, exportMeta(0, P().plates.length));
       $('expStatus').textContent = 'Préparation de la vue d’ensemble (' + lay.width + ' × ' + lay.height + ' px)…';
-      const blob = await PP.files.encodePNG(lay.width, lay.height, lay.draw, (f) => panels.setProgress('expProgress', f));
+      let blob = await PP.files.encodePNG(lay.width, lay.height, lay.draw, (f) => panels.setProgress('expProgress', f));
+      blob = await PP.files.embedInPNG(blob, await A.projectPayload());
       const name = U.safeFileName(P().name) + '_vue-ensemble.png';
       const res = await PP.files.saveFile(name, blob);
       $('expStatus').textContent = res === 'saved' ? name + ' exporté.' : 'Export annulé.';
@@ -1178,8 +1183,8 @@
     }).join('');
     if (P().plates.some((p) => p.id === cur)) sel.value = cur;
     $('guidePaneCal').textContent = A.guide.isCalibrated()
-      ? 'Cet écran est déjà calibré. Vous pourrez affiner la taille dans la pose guidée.'
-      : 'Première fois sur cet écran : un calibrage rapide vous sera proposé (une carte bancaire suffit).';
+      ? 'Cet écran est déjà calé. Vous pourrez affiner le réglage dans la pose guidée.'
+      : 'Première fois sur cet écran : un calage rapide vous sera proposé (deux cercles à placer sous deux picots).';
   };
 
   // =====================================================================
@@ -1195,6 +1200,14 @@
       '<button class="btn" type="button" data-a="rename">Renommer</button>' +
       '<button class="btn" type="button" data-a="dup"><svg class="ic"><use href="#i-copy"/></svg>Dupliquer</button>' +
       '</div>' +
+      '<div class="group proj-save"><div class="group-head"><h3>Sauvegarde en image</h3></div>' +
+      '<p class="hint">Une image PNG du modèle (avec sa légende) qui contient aussi tout le projet : en cas de souci avec le navigateur, ou pour l’envoyer à quelqu’un, il suffit de l’ouvrir ici. Envoyez-la comme <b>fichier</b> (Fichiers, AirDrop, e-mail) : les messageries qui compressent les photos effacent le projet caché dedans.' +
+      (P() && P().fileSaved ? ' Dernière image de ce projet : ' + new Date(P().fileSaved).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) + '.' : '') + '</p>' +
+      '<div class="btn-row">' +
+      '<button class="btn btn-sm btn-primary" type="button" data-a="saveimg"><svg class="ic"><use href="#i-export"/></svg>Enregistrer en image</button>' +
+      '<button class="btn btn-sm" type="button" data-a="share">Partager…</button>' +
+      '<button class="btn btn-sm" type="button" data-a="openfile"><svg class="ic"><use href="#i-upload"/></svg>Ouvrir un fichier</button>' +
+      '</div></div>' +
       '<ul class="proj-list">' + list.map((p) =>
         '<li data-id="' + p.id + '"' + (A.project && p.id === A.project.id ? ' class="current"' : '') + '>' +
         '<span class="p-name">' + esc(p.name) + '</span>' +
@@ -1221,6 +1234,12 @@
           } else if (a === 'dup') {
             close();
             await A.duplicateProject();
+          } else if (a === 'saveimg' || a === 'share') {
+            close();
+            await A.saveProjectImage(a === 'share');
+          } else if (a === 'openfile') {
+            const f = await PP.files.pickFile('.png,image/png,.json,application/json');
+            if (f) { close(); await A.openFile(f); }
           } else if (a === 'open' && li) {
             close();
             await A.openProject(li.dataset.id);
@@ -1256,7 +1275,8 @@
       '<p class="hint" id="persistInfo">' + (persisted ? 'Protection activée : le navigateur ne videra pas ces données de lui-même.' : 'Le navigateur peut effacer ces données s’il manque de place. Activez la protection et exportez régulièrement une sauvegarde.') + '</p>' +
       '<div class="btn-row">' + (persisted ? '' : '<button class="btn btn-sm" type="button" id="setPersist">Protéger mes données</button>') +
       '<button class="btn btn-sm" type="button" id="setBackup"><svg class="ic"><use href="#i-export"/></svg>Exporter une sauvegarde</button>' +
-      '<button class="btn btn-sm" type="button" id="setRestore"><svg class="ic"><use href="#i-upload"/></svg>Restaurer</button></div></div>' +
+      '<button class="btn btn-sm" type="button" id="setRestore"><svg class="ic"><use href="#i-upload"/></svg>Restaurer</button></div>' +
+      '<p class="hint">Sur iPad et iPhone, Safari peut effacer les données d’un site qu’on n’a pas ouvert depuis quelques jours : ajoutez l’application à l’écran d’accueil et gardez une <b>image du projet</b> (menu Projets) ou une sauvegarde complète.</p></div>' +
       '<div class="group desktop-only"><div class="group-head"><h3>Raccourcis clavier</h3></div><dl class="kbd-list">' +
       '<dt>1 … 6</dt><dd>Changer d’étape</dd><dt>Molette · + / −</dt><dd>Zoomer</dd><dt>0</dt><dd>Tout afficher</dd>' +
       '<dt>Espace + glisser</dt><dd>Déplacer la vue (ou clic droit / molette enfoncée)</dd>' +
@@ -1264,7 +1284,8 @@
       '<dt>R · Maj+R</dt><dd>Pivoter l’image</dd><dt>F · Maj+F</dt><dd>Miroir de l’image</dd>' +
       '<dt>B · E · I · G · H</dt><dd>Pinceau, gomme, pipette, remplissage, main</dd><dt>[ · ]</dt><dd>Taille du pinceau</dd>' +
       '<dt>Ctrl+Z · Ctrl+Y</dt><dd>Annuler, rétablir</dd><dt>Ctrl+Entrée</dt><dd>Lancer la conversion</dd></dl></div>' +
-      '<div class="group"><div class="group-head"><h3>Zone sensible</h3></div><div class="btn-row"><button class="btn btn-sm" type="button" id="setReset" style="color:var(--danger)">Tout effacer</button></div></div>';
+      '<div class="group"><div class="group-head"><h3>Zone sensible</h3></div><div class="btn-row"><button class="btn btn-sm" type="button" id="setReset" style="color:var(--danger)">Tout effacer</button></div></div>' +
+      '<p class="about">Version ' + A.APP_VERSION + ' - Leroy Aurélien - 2026 - Tous droits réservés - Réalisé avec IA</p>';
     A.modal({
       title: 'Paramètres', body,
       onOpen: (b, close) => {
@@ -1281,8 +1302,8 @@
         });
         b.querySelector('#setBackup').addEventListener('click', () => A.exportBackup());
         b.querySelector('#setRestore').addEventListener('click', async () => {
-          const f = await PP.files.pickFile('.json,application/json');
-          if (f) { close(); await A.importBackup(f); }
+          const f = await PP.files.pickFile('.json,application/json,.png,image/png');
+          if (f) { close(); await A.openFile(f); }
         });
         b.querySelector('#setReset').addEventListener('click', async () => {
           close();
