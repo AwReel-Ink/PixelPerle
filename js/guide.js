@@ -462,18 +462,21 @@
     list.sort((a, b) => (a.done - b.done) || (how === 'name' ? U.naturalCompare(lbl(a.c), lbl(b.c)) : how === 'asc' ? a.n - b.n : b.n - a.n) || U.naturalCompare(lbl(a.c), lbl(b.c)));
     return list;
   }
-  // un toucher : faire ressortir la couleur ; deux touchers rapides : la marquer terminée (grisée)
+  // toucher une couleur : la faire ressortir (ou l'éteindre)
   function legendTap(code, idx) {
-    const now = performance.now();
-    const t = st.lastTap;
-    if (t && t.code === code && now - t.t < 420) {
-      st.highlight = t.prev;
-      st.lastTap = null;
-      toggleLegendDone(plate(), code);
-      if (st.highlight === idx) st.highlight = null;
-    } else {
-      st.lastTap = { code, t: now, prev: st.highlight };
-      st.highlight = st.highlight === idx ? null : idx;
+    st.highlight = st.highlight === idx ? null : idx;
+    refreshPanel();
+  }
+  // case à cocher : couleur finie. Si c'était la couleur en surbrillance, on passe à la suivante de la liste.
+  function legendCheck(code, idx) {
+    const p = plate();
+    const before = portionColors(p);
+    const k = before.findIndex((x) => x.c.code === code);
+    const becomingDone = k >= 0 && !before[k].done;
+    toggleLegendDone(p, code);
+    if (becomingDone && st.highlight === idx) {
+      const next = before.slice(k + 1).find((x) => !x.done) || before.find((x) => !x.done && x.c.code !== code);
+      st.highlight = next ? next.idx : null;
     }
     refreshPanel();
   }
@@ -641,7 +644,10 @@
     const nDone = doneSet.size;
     ctx.fillStyle = '#1B1F24';
     ctx.font = '700 14px system-ui, sans-serif';
-    ctx.fillText('Couleurs dans cette portion : ' + legend.length + (nDone ? ' · ' + nDone + ' finie' + (nDone > 1 ? 's' : '') : ''), lx, headY + 10);
+    const tail = nDone ? ' · ' + nDone + ' finie' + (nDone > 1 ? 's' : '') : '';
+    let headTxt = 'Couleurs dans cette portion : ' + legend.length + tail;
+    if (ctx.measureText(headTxt).width > lw) headTxt = 'Couleurs ici : ' + legend.length + tail;
+    ctx.fillText(headTxt, lx, headY + 10);
     const chip = 'Tri : ' + SORTS[sortMode()];
     ctx.font = '600 13px system-ui, sans-serif';
     const cwid = ctx.measureText(chip).width + 18;
@@ -653,11 +659,11 @@
     hits.push({ type: 'sort', x: lx - 4, y: chipY - 6, w: cwid + 8, h: 38 });
     ctx.font = '500 12px system-ui, sans-serif';
     ctx.fillStyle = '#5B6470';
-    const helpTxt = 'touchez : faire ressortir · 2 touchers : finie';
+    const helpTxt = 'case : couleur finie · nom : la faire ressortir';
     if (lx + cwid + 12 + ctx.measureText(helpTxt).width < lx + lw) ctx.fillText(helpTxt, lx + cwid + 12, chipY + 13);
 
     // liste des couleurs, avec défilement quand elle est trop longue
-    const rowH = 30;
+    const rowH = 36;
     const colsL = legendSide ? 1 : Math.max(1, Math.floor(lw / 185));
     const cw = lw / colsL;
     const area = { x: lx - 4, y: chipY + 34, w: lw + 8, h: Math.max(rowH, fa.y + fa.h - pad - (chipY + 34)) };
@@ -670,35 +676,46 @@
       const cx = lx + (k % colsL) * cw, cy = area.y + Math.floor(k / colsL) * rowH - st.legScroll;
       if (cy + rowH < area.y || cy > area.y + area.h) return;
       const on = st.highlight === x.idx;
-      if (on) { ctx.fillStyle = '#F8E2EA'; PP.render.rr(ctx, cx - 4, cy, cw - 4, rowH - 3, 6); ctx.fill(); }
+      const my = cy + rowH / 2;
+      if (on) { ctx.fillStyle = '#F8E2EA'; PP.render.rr(ctx, cx - 4, cy + 1, cw - 4, rowH - 4, 6); ctx.fill(); }
+      // case à cocher
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = x.done ? '#C4285F' : '#8A929E';
+      ctx.fillStyle = x.done ? '#C4285F' : '#FFFFFF';
+      PP.render.rr(ctx, cx + 1, my - 11, 22, 22, 5); ctx.fill(); ctx.stroke();
+      if (x.done) {
+        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2.6;
+        ctx.beginPath(); ctx.moveTo(cx + 6, my); ctx.lineTo(cx + 10.5, my + 4.5); ctx.lineTo(cx + 18, my - 4.5); ctx.stroke();
+      }
       ctx.globalAlpha = x.done ? 0.35 : 1;
       ctx.fillStyle = x.c.hex;
-      ctx.beginPath(); ctx.arc(cx + 10, cy + rowH / 2 - 1, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + 44, my - 1, 9, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = U.shade(x.c.hex, 0.7); ctx.lineWidth = 1; ctx.stroke();
       ctx.fillStyle = '#1B1F24';
       ctx.font = '700 14px system-ui, sans-serif';
       const t = lbl(x.c);
-      ctx.fillText(t, cx + 26, cy + rowH / 2);
+      ctx.fillText(t, cx + 60, my);
       let nm = t === x.c.code ? (x.c.name || '') : x.c.code;
       ctx.font = '500 12px system-ui, sans-serif';
       ctx.fillStyle = '#5B6470';
-      const nmW = cw - 80 - 58;
+      const nmW = cw - 112 - 58;
       if (nmW > 24) {
         if (ctx.measureText(nm).width > nmW) { while (nm.length > 1 && ctx.measureText(nm + '…').width > nmW) nm = nm.slice(0, -1); nm += '…'; }
-        ctx.fillText(nm, cx + 80, cy + rowH / 2);
+        ctx.fillText(nm, cx + 112, my);
       }
       ctx.font = '700 14px system-ui, sans-serif';
       ctx.fillStyle = '#1B1F24';
       ctx.textAlign = 'right';
-      ctx.fillText((x.done ? '✓ ' : '') + '× ' + x.n, cx + cw - 12, cy + rowH / 2);
+      ctx.fillText('× ' + x.n, cx + cw - 12, my);
       ctx.textAlign = 'left';
       if (x.done) {
         ctx.strokeStyle = '#5B6470'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(cx + 24, cy + rowH / 2); ctx.lineTo(cx + cw - 16, cy + rowH / 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx + 58, my); ctx.lineTo(cx + cw - 16, my); ctx.stroke();
       }
       ctx.globalAlpha = 1;
       const vy = Math.max(cy, area.y), vh = Math.min(cy + rowH, area.y + area.h) - vy;
-      if (vh > 8) hits.push({ type: 'leg', x: cx - 4, y: vy, w: cw - 4, h: vh, idx: x.idx, code: x.c.code });
+      if (vh > 8) hits.push({ type: 'legchk', x: cx - 4, y: vy, w: 34, h: vh, idx: x.idx, code: x.c.code });
+      if (vh > 8) hits.push({ type: 'leg', x: cx + 30, y: vy, w: cw - 34, h: vh, idx: x.idx, code: x.c.code });
     });
     ctx.restore();
     if (maxScroll > 0) {
@@ -727,12 +744,113 @@
     }
   }
 
+
+  // ---------- Informations pratiques pour la pose ----------
+  function infoChips(list, withDone) {
+    return '<div class="gi-chips">' + list.map((x) =>
+      '<span class="gi-chip' + (withDone && withDone.has(x.c.code) ? ' done' : '') + '" title="' + esc(x.c.name || x.c.code) + '"><i style="background:' + x.c.hex + '"></i><b>' + esc(lbl(x.c)) + '</b>' + (x.n != null ? '<span>× ' + x.n + '</span>' : '') + '</span>').join('') + '</div>';
+  }
+  function refreshInfo() {
+    const box = $('gInfo');
+    if (!box || !$('gInfoDD').open) return;
+    const p = plate();
+    if (!p) { box.innerHTML = ''; return; }
+    const g = gs();
+    const ps = plateState(p.id);
+    const d = dims(p);
+    const grid = gridOf(p);
+    const all = colorsOf(p).sort((a, b) => b.n - a.n || U.naturalCompare(lbl(a.c), lbl(b.c)));
+    const beads = all.reduce((s, x) => s + x.n, 0);
+    const empty = p.w * p.h - beads;
+    const pitch = p.pitch || 2.6;
+    let html = '<p class="gi-line"><b>' + esc(p.name) + '</b> · ' + d.w + ' × ' + d.h + ' picots (≈ ' + A.ui.cm(d.w, pitch) + ' × ' + A.ui.cm(d.h, pitch) + ' cm) · <b>' + U.fmtInt(beads) + '</b> perles' + (empty ? ' · ' + U.fmtInt(empty) + ' picots vides' : '') + '</p>';
+    // avancement : un bloc « posé » compte en entier ; sinon, les couleurs cochées dans sa légende comptent comme posées
+    const remain = new Map();
+    all.forEach((x) => remain.set(x.idx, x.n));
+    let doneBeads = 0;
+    const lDone = ps.legendDone || {};
+    const countIn = (x0, y0, x1, y1, codes, whole) => {
+      let n = 0, total = 0;
+      for (let dj = y0; dj < y1; dj++) for (let di = x0; di < x1; di++) {
+        const [i, j] = fromDisplay(di, dj, p);
+        const v = grid[j * p.w + i];
+        if (v < 0) continue;
+        total++;
+        if (whole || codes.has(r.colors[v].code)) { n++; remain.set(v, (remain.get(v) || 0) - 1); }
+      }
+      return { n, total };
+    };
+    const r = P().result;
+    if (g.mode === 'block') {
+      const b = blocks(p);
+      let finished = 0;
+      var finishedSet = new Set();
+      for (let k = 0; k < b.n; k++) {
+        const br = blockRect(p, k);
+        const whole = ps.blocksDone.includes(k);
+        const res = countIn(br.x0, br.y0, br.x1, br.y1, new Set(lDone[blockSize() + ':' + k] || []), whole);
+        doneBeads += res.n;
+        if (whole || (res.total && res.n === res.total) || !res.total) { finished++; finishedSet.add(k); }
+      }
+      html += '<p class="gi-line">Avancement : <b>' + finished + ' / ' + b.n + '</b> blocs terminés · ' + U.fmtInt(doneBeads) + ' perles posées, <b>' + U.fmtInt(beads - doneBeads) + '</b> restantes.</p>';
+      html += '<p class="gi-sub">Un bloc compte comme terminé quand il est marqué « Bloc posé » ou que toutes ses couleurs sont cochées.</p>';
+    } else {
+      doneBeads = countIn(0, 0, d.w, d.h, new Set(lDone.all || []), false).n;
+      html += '<p class="gi-line">Avancement : ' + U.fmtInt(doneBeads) + ' perles posées (couleurs cochées), <b>' + U.fmtInt(beads - doneBeads) + '</b> restantes.</p>';
+    }
+    if (g.mode === 'block') {
+      const b = blocks(p);
+      html += '<h4>' + all.length + ' couleur' + (all.length > 1 ? 's' : '') + ' sur la plaque</h4><p class="gi-sub">Quantité totale, puis ce qu’il reste à poser.</p>';
+      html += '<table class="gi-table"><thead><tr><th>Couleur</th><th>Total</th><th>Reste</th></tr></thead><tbody>' + all.map((x) => '<tr><td><i style="background:' + x.c.hex + '"></i><b>' + esc(lbl(x.c)) + '</b> <span>' + esc(lbl(x.c) === x.c.code ? (x.c.name || '') : x.c.code) + '</span></td><td>' + x.n + '</td><td>' + (remain.get(x.idx) || 0) + '</td></tr>').join('') + '</tbody></table>';
+      // couleurs par rangée de blocs : du début de la plaque jusqu'à la descente à la rangée suivante
+      html += '<h4>Couleurs par rangée de blocs</h4><p class="gi-sub">Pour préparer les perles avant de poser chaque rangée.</p>';
+      for (let by = 0; by < b.ny; by++) {
+        const y0 = by * b.B, y1 = Math.min(d.h, y0 + b.B);
+        const list = colorsOf(p, (i, j) => { const dj = toDisplay(i, j, p)[1]; return dj >= y0 && dj < y1; }).sort((a, c) => c.n - a.n || U.naturalCompare(lbl(a.c), lbl(c.c)));
+        let doneRow = true;
+        for (let bx = 0; bx < b.nx; bx++) if (!finishedSet.has(by * b.nx + bx)) doneRow = false;
+        const cur = Math.floor((ps.block | 0) / b.nx) === by;
+        html += '<div class="gi-band' + (cur ? ' cur' : '') + (doneRow ? ' done' : '') + '"><div class="gi-band-h"><b>Rangée ' + (by + 1) + '</b> · lignes ' + (y0 + 1) + ' à ' + y1 + ' · blocs ' + U.colLetters(0) + (by + 1) + ' à ' + U.colLetters(b.nx - 1) + (by + 1) + ' · <b>' + list.length + '</b> couleur' + (list.length > 1 ? 's' : '') + (doneRow ? ' · posée ✓' : cur ? ' · en cours' : '') + '</div>' + infoChips(list) + '</div>';
+      }
+    } else {
+      html += '<h4>' + all.length + ' couleur' + (all.length > 1 ? 's' : '') + ' sur la plaque</h4>' + infoChips(all);
+      html += '<h4>Couleurs ligne par ligne</h4>';
+      for (let dj = 0; dj < d.h; dj++) {
+        const list = colorsOf(p, (i, j) => toDisplay(i, j, p)[1] === dj).sort((a, c) => c.n - a.n);
+        html += '<div class="gi-band"><div class="gi-band-h"><b>Ligne ' + (dj + 1) + '</b> · ' + list.length + ' couleur' + (list.length > 1 ? 's' : '') + '</div>' + infoChips(list) + '</div>';
+      }
+    }
+    if (P().plates.length > 1) {
+      const tot = new Map();
+      P().plates.forEach((q) => colorsOf(q).forEach((x) => tot.set(x.idx, (tot.get(x.idx) || 0) + x.n)));
+      const n = Array.from(tot.values()).reduce((a, b2) => a + b2, 0);
+      html += '<h4>Tout le projet</h4><p class="gi-line">' + P().plates.length + ' plaques · ' + tot.size + ' couleurs · ' + U.fmtInt(n) + ' perles.</p>';
+    }
+    box.innerHTML = html;
+  }
+  function infoText() {
+    const p = plate();
+    const all = colorsOf(p).sort((a, b) => b.n - a.n);
+    const lines = [P().name + ' — ' + p.name, all.length + ' couleurs :'].concat(all.map((x) => '- ' + lbl(x.c) + (x.c.name && lbl(x.c) === x.c.code ? ' (' + x.c.name + ')' : '') + ' × ' + x.n));
+    if (gs().mode === 'block') {
+      const b = blocks(p), d = dims(p);
+      lines.push('', 'Couleurs par rangée de blocs :');
+      for (let by = 0; by < b.ny; by++) {
+        const y0 = by * b.B, y1 = Math.min(d.h, y0 + b.B);
+        const list = colorsOf(p, (i, j) => { const dj = toDisplay(i, j, p)[1]; return dj >= y0 && dj < y1; }).sort((a, c) => c.n - a.n);
+        lines.push('Rangée ' + (by + 1) + ' (lignes ' + (y0 + 1) + ' à ' + y1 + ') : ' + list.map((x) => lbl(x.c) + ' ×' + x.n).join(', '));
+      }
+    }
+    return lines.join('\n');
+  }
+
   // ---------- Panneau ----------
   function setSeg(el, v) {
     el.querySelectorAll('button[data-v]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === String(v))));
   }
 
   function refreshPanel() {
+    setTimeout(refreshInfo, 0);
     if (!st) return;
     const g = gs();
     const p = plate();
@@ -878,7 +996,8 @@
     setSeg($('gSort'), sortMode());
     $('gBlockList').innerHTML = list.map((x) =>
       '<li data-idx="' + x.idx + '" data-code="' + esc(x.c.code) + '" class="' + (st.highlight === x.idx ? 'cur' : '') + (x.done ? ' done' : '') + '">' +
-      '<span class="gp-dot" style="background:' + x.c.hex + '"></span><b>' + esc(lbl(x.c)) + '</b><span class="gp-nm">' + esc(lbl(x.c) === x.c.code ? (x.c.name || '') : 'n° ' + x.c.code) + '</span><span class="gp-n">× ' + x.n + '</span><span class="gp-ok"></span></li>').join('');
+      '<button type="button" class="gp-chk" role="checkbox" aria-checked="' + x.done + '" aria-label="Couleur finie"><svg class="ic"><use href="#i-check"/></svg></button>' +
+      '<span class="gp-dot" style="background:' + x.c.hex + '"></span><b>' + esc(lbl(x.c)) + '</b><span class="gp-nm">' + esc(lbl(x.c) === x.c.code ? (x.c.name || '') : 'n° ' + x.c.code) + '</span><span class="gp-n">× ' + x.n + '</span></li>').join('');
   }
 
   // ---------- Actions ----------
@@ -1064,6 +1183,7 @@
     if (g0.type === 'tap' && Math.abs(dx) + Math.abs(dy) < 12) { if (g0.hit.type === 'sort') cycleSort(); return; }
     if (g0.type === 'leg') {
       if (!g0.moved && g0.hit && g0.hit.type === 'leg') legendTap(g0.hit.code, g0.hit.idx);
+      if (!g0.moved && g0.hit && g0.hit.type === 'legchk') legendCheck(g0.hit.code, g0.hit.idx);
       return;
     }
     if (g0.type === 'swipe') {
@@ -1151,6 +1271,11 @@
     const seg = (id, fn) => $(id).addEventListener('click', (e) => { const b = e.target.closest('button[data-v]'); if (b) fn(b.dataset.v); });
     $('guideClose').addEventListener('click', () => G.closeScreen());
     $('gScreenOpen').addEventListener('click', () => G.openScreen());
+    $('gInfoDD').addEventListener('toggle', () => refreshInfo());
+    $('gInfoCopy').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(infoText()); A.toast('Liste copiée : collez-la dans vos notes.'); }
+      catch (e) { A.toast('Copie refusée par le navigateur.', 'error'); }
+    });
     $('gResetSide').addEventListener('click', async () => {
       if (!(await A.confirm('Effacer l’avancement de cette plaque (blocs posés, couleurs finies) ?', 'Recommencer', true))) return;
       const ps = plateState(plate().id); ps.blocksDone = []; ps.block = 0; ps.legendDone = {}; ps.done = []; ps.row = 0;
@@ -1178,7 +1303,12 @@
     $('gBright').addEventListener('input', (e) => { gs().bright = +e.target.value; $('gBrightOut').textContent = e.target.value + ' %'; draw(); });
     $('gBlockSize').addEventListener('change', (e) => { resetSideView(); gs().blockSize = +e.target.value; plateState(plate().id).blocksDone = []; plateState(plate().id).block = 0; A.saveProject(); refreshPanel(); });
     $('gColorList').addEventListener('click', (e) => { const li = e.target.closest('li[data-code]'); if (li) { plateState(plate().id).color = li.dataset.code; refreshPanel(); } });
-    $('gBlockList').addEventListener('click', (e) => { const li = e.target.closest('li[data-idx]'); if (li) legendTap(li.dataset.code, +li.dataset.idx); });
+    $('gBlockList').addEventListener('click', (e) => {
+      const li = e.target.closest('li[data-idx]');
+      if (!li) return;
+      if (e.target.closest('.gp-chk')) legendCheck(li.dataset.code, +li.dataset.idx);
+      else legendTap(li.dataset.code, +li.dataset.idx);
+    });
     seg('gSort', (v) => { gs().legendSort = v; st.legScroll = 0; A.saveProject(); refreshPanel(); });
     $('gZoomIn').addEventListener('click', () => zoomSide(1.4));
     $('gZoomOut').addEventListener('click', () => zoomSide(1 / 1.4));

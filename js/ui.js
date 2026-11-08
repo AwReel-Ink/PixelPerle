@@ -60,15 +60,28 @@
     if (tab === 'guide') { if (A.guide) A.guide.enter(); }
     else if (tab === 'palette' || prev === 'palette') A.stage.fitView();
     else A.stage.onTabChange();
-    if (isMobile() && !keepSheet) setSheet(true);
+    if (!keepSheet) setSheet(true);
     $('panel').scrollTop = 0;
   };
 
+  // Tiroir : sur le côté (PC, tablette en paysage) le panneau rentre et laisse une bande avec « > » ;
+  // en bas (tablette en portrait, téléphone) il se replie sur son titre.
+  const isSide = () => !isMobile() || (window.matchMedia && matchMedia('(orientation: landscape)').matches);
   panels.setSheet = (open) => setSheet(open);
+  panels.isPanelOpen = () => sheetOpen;
+  function applyDrawer() {
+    const side = isSide();
+    document.documentElement.classList.toggle('panel-shut', side && !sheetOpen);
+    $('panel').classList.toggle('collapsed', !side && !sheetOpen);
+    const b = $('drawerBtn');
+    b.title = sheetOpen ? 'Rentrer le menu' : 'Afficher le menu';
+    b.setAttribute('aria-expanded', String(sheetOpen));
+  }
   function setSheet(open) {
+    const changed = sheetOpen !== open;
     sheetOpen = open;
-    $('panel').classList.toggle('collapsed', isMobile() && !open);
-    requestAnimationFrame(() => { A.stage.resize(); if (A.guide) A.guide.resize(); });
+    applyDrawer();
+    if (changed) requestAnimationFrame(() => { A.stage.resize(); if (A.guide) A.guide.resize(); });
   }
 
   panels.syncChrome = function () {
@@ -84,7 +97,7 @@
     $('quickbar').hidden = !(isMobile() && A.tab === 'edit' && has);
     $('coords').textContent = '';
     $('handBtn').setAttribute('aria-pressed', String(A.hand));
-    $('panel').classList.toggle('collapsed', isMobile() && !sheetOpen);
+    applyDrawer();
     document.documentElement.classList.toggle('beta-screen', !!(A.settings.beta && A.settings.beta.screen));
     if (A.panes.edit && A.panes.edit.syncQuickbar) A.panes.edit.syncQuickbar();
   };
@@ -108,10 +121,14 @@
     $('tabs').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-tab]');
       if (!b) return;
-      if (isMobile() && b.dataset.tab === A.tab) { setSheet(!sheetOpen); return; }
+      if (b.dataset.tab === A.tab) { setSheet(!sheetOpen); return; }
       A.setTab(b.dataset.tab);
     });
     $('sheetHandle').addEventListener('click', () => setSheet(!sheetOpen));
+    $('drawerBtn').addEventListener('click', (e) => { e.stopPropagation(); setSheet(!sheetOpen); });
+    // panneau rentré : toute la bande ouvre le menu
+    $('panel').addEventListener('click', () => { if (document.documentElement.classList.contains('panel-shut')) setSheet(true); });
+    window.addEventListener('resize', U.debounce(() => { applyDrawer(); A.stage.resize(); if (A.guide) A.guide.resize(); }, 120));
     $('uiToggle').addEventListener('click', () => {
       A.settings.ui = A.uiMode() === 'mobile' ? 'desktop' : 'mobile';
       A.saveSettings();
@@ -125,6 +142,7 @@
     $('staleConvert').addEventListener('click', () => A.runConversion());
     initDropdowns();
     Object.values(A.panes).forEach((p) => { if (p.init) p.init(); });
+    if (PP.detect) PP.detect.init(); // détection automatique et nuancier (étape Palette)
     if (A.projects) A.projects.init();
   };
 

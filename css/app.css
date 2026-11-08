@@ -132,7 +132,7 @@ code { font-family: var(--f-mono); font-size: 0.85em; background: var(--surface-
   height: 100%;
   display: grid;
   grid-template-columns: 88px 344px minmax(0, 1fr);
-  grid-template-rows: 54px minmax(0, 1fr);
+  grid-template-rows: calc(54px + env(safe-area-inset-top, 0px)) minmax(0, 1fr);
   grid-template-areas: "top top top" "tabs panel stage";
 }
 .topbar {
@@ -141,6 +141,8 @@ code { font-family: var(--f-mono); font-size: 0.85em; background: var(--surface-
   align-items: center;
   gap: 10px;
   padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+  /* iPad / iPhone installé : la barre d'état (heure, batterie) peut passer par-dessus le haut de la page */
+  padding-top: env(safe-area-inset-top, 0px);
   background: var(--surface);
   border-bottom: 1px solid var(--line);
   min-width: 0;
@@ -446,7 +448,7 @@ kbd { font-family: var(--f-mono); font-size: 0.85em; padding: 1px 5px; border: 1
 .ui-mobile .desktop-only { display: none !important; }
 .ui-mobile .app {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 52px minmax(0, 1fr) auto calc(62px + env(safe-area-inset-bottom, 0px));
+  grid-template-rows: calc(52px + env(safe-area-inset-top, 0px)) minmax(0, 1fr) auto calc(62px + env(safe-area-inset-bottom, 0px));
   grid-template-areas: "top" "stage" "panel" "tabs";
 }
 .ui-mobile .brand-name { display: none; }
@@ -765,7 +767,7 @@ html:not(.beta-screen) .beta-only { display: none !important; }
 .gp-count { font-weight: 700; margin: 6px 0; }
 .gp-colors li.done { opacity: 0.45; }
 .gp-colors li.done b, .gp-colors li.done .gp-nm { text-decoration: line-through; }
-.gp-colors li.done .gp-ok::after { content: "✓"; }
+
 .gp-colors li { user-select: none; -webkit-user-select: none; touch-action: manipulation; }
 
 
@@ -823,15 +825,69 @@ details.dd-inner { background: var(--surface-2); }
 .conv-sub { display: block; font-size: var(--fs-xs); font-weight: 400; opacity: 0.85; }
 #convertBtn { flex-direction: column; gap: 0; height: auto; min-height: 56px; padding: 8px 12px; }
 #convertBtn .ic { display: none; }
-/* tablette en paysage, pose guidée : réglages sur le côté, le modèle garde toute la hauteur */
+/* tablette en paysage : réglages sur le côté pour toutes les étapes, l'espace de travail garde toute la hauteur */
 @media (orientation: landscape) {
-  .ui-mobile.in-guide .app {
+  .ui-mobile .app {
     grid-template-columns: min(330px, 36vw) minmax(0, 1fr);
-    grid-template-rows: 52px minmax(0, 1fr) calc(62px + env(safe-area-inset-bottom, 0px));
+    grid-template-rows: calc(52px + env(safe-area-inset-top, 0px)) minmax(0, 1fr) calc(62px + env(safe-area-inset-bottom, 0px));
     grid-template-areas: "top top" "panel stage" "tabs tabs";
   }
-  .ui-mobile.in-guide .panel { max-height: none; border-radius: 0; border-top: 0; border-right: 1px solid var(--line); box-shadow: none; }
-  .ui-mobile.in-guide .panel.collapsed { max-height: none; overflow-y: auto; }
-  .ui-mobile.in-guide .sheet-handle { display: none; }
-  .ui-mobile.in-guide [data-pane="guide"] .pane-head .lede { display: none; }
+  .ui-mobile .panel { max-height: none; margin-top: 0; border-radius: 0; border-top: 0; border-right: 1px solid var(--line); box-shadow: none; }
+  .ui-mobile .panel.collapsed { max-height: none; overflow-y: auto; }
+  .ui-mobile .sheet-handle { display: none; }
+  .ui-mobile [data-pane] .pane-head .lede { display: none; }
+  .ui-mobile .hud { bottom: 14px; }
+  .ui-mobile .banner { bottom: 14px; }
+  html.ui-mobile.panel-shut .app { grid-template-columns: 52px minmax(0, 1fr); }
 }
+
+/* ---------- tiroir : le panneau rentre en ne laissant qu'une bande avec « > » ---------- */
+.drawer-bar { position: sticky; top: 0; z-index: 4; height: 0; display: flex; justify-content: flex-end; }
+.drawer-btn { margin: 10px 10px 0 0; width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-2); cursor: pointer; box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,.08)); }
+.drawer-btn:hover { color: var(--ink); border-color: var(--line-strong); }
+.drawer-lbl { display: none; }
+.pane-head { padding-right: 44px; }
+html.panel-shut .app { grid-template-columns: 88px 52px minmax(0, 1fr); }
+@media (max-width: 1100px) { html.panel-shut .app { grid-template-columns: 76px 52px minmax(0, 1fr); } }
+html.panel-shut .panel { overflow: hidden; }
+html.panel-shut .panel > :not(.drawer-bar) { display: none !important; }
+html.panel-shut .drawer-bar { height: 100%; justify-content: center; align-items: flex-start; }
+html.panel-shut .panel { cursor: pointer; }
+html.panel-shut .drawer-btn { margin: 10px 0 0; height: auto; padding: 12px 0; gap: 12px; width: 38px; display: flex; flex-direction: column; align-items: center; }
+html.panel-shut .drawer-btn .ic { transform: rotate(180deg); }
+html.panel-shut .drawer-lbl { display: block; writing-mode: vertical-rl; font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+/* panneau du bas (tablette en portrait, téléphone) : le bouton rentre / sort le tiroir vers le bas */
+@media (orientation: portrait) {
+  .ui-mobile .drawer-bar { position: absolute; top: 0; right: 0; }
+  .ui-mobile .drawer-btn { margin: 4px 10px 0 0; width: 36px; height: 30px; }
+  .ui-mobile .drawer-btn .ic { transform: rotate(-90deg); }
+  .ui-mobile .panel.collapsed .drawer-btn .ic { transform: rotate(90deg); }
+}
+
+/* ---------- pose guidée : cases à cocher et informations ---------- */
+#gBlockList li { grid-template-columns: 34px 18px 46px minmax(0, 1fr) auto; }
+.gp-chk { width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 2px solid var(--line-strong); border-radius: 7px; background: var(--surface); color: transparent; cursor: pointer; }
+.gp-chk .ic { width: 18px; height: 18px; stroke-width: 3; }
+.gp-chk[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+#gBlockList li.done { opacity: 1; }
+#gBlockList li.done > :not(.gp-chk) { opacity: 0.45; }
+.gi { display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-sm); }
+.gi h4 { margin: 8px 0 0; font-size: var(--fs-sm); }
+.gi-line, .gi-sub { margin: 0; }
+.gi-sub { color: var(--ink-2); font-size: var(--fs-xs); margin-top: -4px; }
+.gi-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.gi-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px 2px 3px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2); font-size: 12px; }
+.gi-chip i, .gi-table i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 1px rgba(0,0,0,.2); flex: none; vertical-align: -2px; margin-right: 4px; }
+.gi-chip span { color: var(--ink-2); }
+.gi-band { padding: 8px; border: 1px solid var(--line); border-radius: var(--r-sm); display: flex; flex-direction: column; gap: 6px; }
+.gi-band.cur { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.gi-band.done { opacity: 0.55; }
+.gi-band-h { font-size: 12px; color: var(--ink-2); }
+.gi-band-h b { color: var(--ink); }
+.gi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.gi-table td { padding: 4px 4px; border-bottom: 1px solid var(--line); }
+.gi-table td:nth-child(n+2) { text-align: right; font-variant-numeric: tabular-nums; width: 52px; }
+.gi-table td span { color: var(--ink-2); font-size: 12px; }
+.gi-table th { text-align: right; font-size: 11px; color: var(--ink-2); font-weight: 600; padding: 2px 4px; }
+.gi-table th:first-child { text-align: left; }
+html, body { touch-action: manipulation; }

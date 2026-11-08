@@ -11,6 +11,7 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Pixel Perles">
 <!--/PWA-HEAD-->
 <!--ARTIFACT-START-->
@@ -100,6 +101,7 @@
 
   <aside class="panel" id="panel">
     <button class="sheet-handle" id="sheetHandle" type="button" aria-label="Agrandir ou réduire le panneau"><span></span></button>
+    <div class="drawer-bar"><button class="drawer-btn" id="drawerBtn" type="button" title="Rentrer le menu"><svg class="ic"><use href="#i-left"/></svg><span class="drawer-lbl">Menu</span></button></div>
     <!-- ===================== PLATEAU ===================== -->
     <section class="pane" data-pane="plates">
       <div class="pane-head">
@@ -540,7 +542,7 @@
           <div class="gp-sec" id="gLegendBox">
             <p class="gp-count" id="gBlockCount"></p>
             <div class="seg seg-sm" id="gSort" role="radiogroup" aria-label="Trier la légende"><button type="button" data-v="desc" title="Les couleurs les plus nombreuses d’abord">Quantité ↓</button><button type="button" data-v="asc">Quantité ↑</button><button type="button" data-v="name" title="Pratique pour préparer les perles à l’avance">Nom</button></div>
-            <p class="gp-small">Un toucher fait ressortir une couleur ; deux touchers la marquent finie.</p>
+            <p class="gp-small">Cochez une couleur quand elle est posée : la suivante ressort toute seule. Touchez un nom pour faire ressortir sa couleur.</p>
             <ul class="gp-colors" id="gBlockList"></ul>
             <button class="btn btn-sm btn-ghost" id="gResetSide" type="button">Recommencer cette plaque</button>
           </div>
@@ -576,6 +578,13 @@
             </div>
           </div>
         </div>
+        <details class="dd gp-dd" data-dd="gd-info" id="gInfoDD">
+          <summary><span>Informations</span><svg class="ic dd-chev"><use href="#i-down"/></svg></summary>
+          <div class="dd-body">
+            <div class="gi" id="gInfo"></div>
+            <button class="btn btn-sm" id="gInfoCopy" type="button"><svg class="ic"><use href="#i-copy"/></svg>Copier la liste des couleurs</button>
+          </div>
+        </details>
         <details class="dd gp-dd" data-dd="gd-view">
           <summary><span>Affichage</span><svg class="ic dd-chev"><use href="#i-down"/></svg></summary>
           <div class="dd-body">
