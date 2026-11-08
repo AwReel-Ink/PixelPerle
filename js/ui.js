@@ -69,8 +69,13 @@
   const isSide = () => !isMobile() || (window.matchMedia && matchMedia('(orientation: landscape)').matches);
   panels.setSheet = (open) => setSheet(open);
   panels.isPanelOpen = () => sheetOpen;
+  // barre rapide de retouche : utile quand les outils du panneau ne sont pas visibles (panneau rentré ou en bas)
+  function syncQuickbar() {
+    $('quickbar').hidden = !(isMobile() && A.tab === 'edit' && A.hasResult() && (!isSide() || !sheetOpen));
+  }
   function applyDrawer() {
     const side = isSide();
+    syncQuickbar();
     document.documentElement.classList.toggle('panel-shut', side && !sheetOpen);
     $('panel').classList.toggle('collapsed', !side && !sheetOpen);
     const b = $('drawerBtn');
@@ -94,7 +99,7 @@
     const pal = A.currentPalette();
     $('photoEmpty').hidden = !(A.tab === 'palette' && pal && !pal.photo);
     $('staleBanner').hidden = !((A.tab === 'edit' || A.tab === 'export') && A.isStale());
-    $('quickbar').hidden = !(isMobile() && A.tab === 'edit' && has);
+    syncQuickbar();
     $('coords').textContent = '';
     $('handBtn').setAttribute('aria-pressed', String(A.hand));
     applyDrawer();

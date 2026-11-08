@@ -890,4 +890,9 @@ html.panel-shut .drawer-lbl { display: block; writing-mode: vertical-rl; font-si
 .gi-table td span { color: var(--ink-2); font-size: 12px; }
 .gi-table th { text-align: right; font-size: 11px; color: var(--ink-2); font-weight: 600; padding: 2px 4px; }
 .gi-table th:first-child { text-align: left; }
-html, body { touch-action: manipulation; }
+/* pas de zoom de Safari au double toucher sur les boutons et les listes ; jamais sur html/body :
+   Safari applique alors cette règle aux zones de dessin et le doigt ne déplace plus l'image */
+button, .btn, .icon-btn, .seg, .tabs, .topbar, .panel, .modal, summary, .gp-colors li, .cmp-bar { touch-action: manipulation; }
+
+/* iPad : pas de loupe ni de menu « copier » pendant un appui long sur les zones de dessin */
+.stage, .stage canvas, .guide canvas, .cmp-view canvas { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }

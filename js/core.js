@@ -726,7 +726,7 @@
   };
 
   // ---------- Sauvegardes ----------
-  A.APP_VERSION = '3.1.1';
+  A.APP_VERSION = '3.1.2';
 
   async function serializeProject(p) {
     const q = Object.assign({}, p);
