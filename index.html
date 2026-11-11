@@ -342,6 +342,18 @@
             </div>
           </details>
         </div>
+        <details class="dd dd-layer" data-dd="ed-layer" id="layerDD">
+          <summary><span>Dessin sur calque <output class="dd-note" id="layerNote"></output></span><svg class="ic dd-chev"><use href="#i-down"/></svg></summary>
+          <div class="dd-body">
+            <p class="hint">La photo d’origine reste sous les perles : placez vos perles à la main, là où vous les voulez. Pratique quand la photo contient une table, des reflets ou des ombres.</p>
+            <label class="check"><input type="checkbox" id="layerOn"><span>Afficher la photo d’origine sous les perles</span></label>
+            <label class="field"><span class="label">Photo d’origine <output id="layerImgOut"></output></span><input id="layerImg" type="range" min="0" max="100" value="60"></label>
+            <label class="field"><span class="label">Perles <output id="layerBeadsOut"></output></span><input id="layerBeads" type="range" min="0" max="100" value="70"></label>
+            <label class="check"><input type="checkbox" id="pickPhoto"><span>La pipette lit la couleur de la photo et choisit la perle la plus proche</span></label>
+            <button class="btn btn-sm" id="layerClear" type="button"><svg class="ic"><use href="#i-eraser"/></svg>Partir d’une plaque vide</button>
+            <p class="hint" id="layerHint"></p>
+          </div>
+        </details>
         <div class="group">
           <button class="btn btn-primary btn-wide" id="reduceBtn" type="button"><svg class="ic"><use href="#i-palette"/></svg>Limiter le nombre de couleurs</button>
           <p class="hint"><span id="reduceCount"></span> Moins de changements de perles, ou un modèle plus simple pour un enfant : vous comparez les versions avant de choisir.</p>
@@ -372,7 +384,6 @@
           <div class="dd-body">
             <label class="check"><input type="checkbox" id="viewBeads"><span>Rendu perles (rondes, avec le trou)</span></label>
             <label class="check"><input type="checkbox" id="viewCodes" checked><span>Codes dans les perles (en zoomant)</span></label>
-            <label class="check"><input type="checkbox" id="viewOverlay"><span>Superposer l’image d’origine</span></label>
           </div>
         </details>
         <p class="hint" id="editStats"></p>

@@ -33,7 +33,35 @@
     });
     $('viewBeads').addEventListener('change', (e) => { P().disp.beads = e.target.checked; A.touch(); });
     $('viewCodes').addEventListener('change', (e) => { P().disp.codes = e.target.checked; A.touch(); });
-    $('viewOverlay').addEventListener('change', (e) => { P().disp.overlay = e.target.checked; A.touch(); });
+    // dessin sur calque
+    $('layerOn').addEventListener('change', (e) => { P().disp.layer = e.target.checked; A.plateCache.clear(); A.touch(); refreshLayer(); });
+    [['layerImg', 'layerImg'], ['layerBeads', 'layerBeads']].forEach(([id, key]) => {
+      $(id).addEventListener('input', (e) => {
+        P().disp[key] = +e.target.value;
+        if (!P().disp.layer) { P().disp.layer = true; A.plateCache.clear(); }
+        $(id + 'Out').textContent = e.target.value + ' %';
+        A.touch();
+        refreshLayer();
+      });
+    });
+    $('pickPhoto').addEventListener('change', (e) => {
+      A.edit.pickPhoto = e.target.checked;
+      if (e.target.checked) { A.edit.tool = 'pick'; refresh(); }
+    });
+    $('layerClear').addEventListener('click', async () => {
+      if (!(await A.confirm('Vider toutes les plaques pour dessiner à la main sur la photo ? Vous pourrez revenir en arrière avec « Annuler ».', 'Vider les plaques', true))) return;
+      const changes = [];
+      P().plates.forEach((p) => {
+        const g = P().result.grids[p.id];
+        if (!g) return;
+        for (let i = 0; i < g.length; i++) if (g[i] !== -1) { changes.push({ pid: p.id, idx: i, old: g[i], nv: -1 }); g[i] = -1; }
+        A.plateCache.delete(p.id);
+      });
+      if (!P().disp.layer) { P().disp.layer = true; A.plateCache.clear(); }
+      A.stage.pushUndo(changes);
+      refresh();
+      A.toast('Plaques vidées : dessinez par-dessus la photo. « Annuler » remet les perles.');
+    });
     $('replBtn').addEventListener('click', replaceColor);
     $('cleanBtn').addEventListener('click', cleanIsolated);
     $('reduceBtn').addEventListener('click', () => A.compare.openReduce());
@@ -93,8 +121,7 @@
     $('activeSw').style.background = c ? c.hex : 'transparent';
     $('viewBeads').checked = P().disp.beads;
     $('viewCodes').checked = P().disp.codes;
-    $('viewOverlay').checked = P().disp.overlay;
-    $('viewOverlay').disabled = !P().image;
+    refreshLayer();
     const used = r.colors.map((x, i) => i).filter((i) => u.counts[i] > 0).sort((a, b) => U.naturalCompare(r.colors[a].code, r.colors[b].code));
     const all = r.colors.map((x, i) => i).sort((a, b) => U.naturalCompare(r.colors[a].code, r.colors[b].code));
     const opt = (i) => '<option value="' + i + '">' + esc(r.colors[i].code + (r.colors[i].name ? ' — ' + r.colors[i].name : '')) + '</option>';
@@ -181,6 +208,21 @@
     A.toast(changes.length + ' perle(s) isolée(s) corrigée(s). Ctrl+Z pour annuler.');
   }
 
+
+  function refreshLayer() {
+    const d = P().disp;
+    const has = !!(P().image && A.imgAdj);
+    $('layerOn').checked = !!d.layer;
+    $('layerOn').disabled = !has;
+    $('layerImg').value = d.layerImg == null ? 60 : d.layerImg;
+    $('layerBeads').value = d.layerBeads == null ? 70 : d.layerBeads;
+    $('layerImgOut').textContent = $('layerImg').value + ' %';
+    $('layerBeadsOut').textContent = $('layerBeads').value + ' %';
+    $('pickPhoto').checked = !!A.edit.pickPhoto;
+    $('pickPhoto').disabled = !has;
+    $('layerNote').textContent = d.layer && has ? 'activé' : '';
+    $('layerHint').textContent = has ? '' : 'Ce projet n’a pas d’image d’origine : importez-en une dans l’onglet Image.';
+  }
 
   A.panes.edit = { init, refresh, syncQuickbar };
 })();

@@ -162,7 +162,17 @@
     const showResult = A.hasResult() && (A.tab === 'edit' || A.tab === 'export');
     const hasImg = !!(P.image && A.imgAdj);
     const imgBelow = hasImg && !showResult;
-    const imgOver = hasImg && showResult && P.disp.overlay;
+    // dessin sur calque : la photo d'origine sous les perles, chacune avec sa transparence
+    layerMode = hasImg && showResult && A.tab === 'edit' && !!P.disp.layer;
+
+    if (layerMode) {
+      ctx.save();
+      ctx.globalAlpha = U.clamp((P.disp.layerImg == null ? 60 : P.disp.layerImg) / 100, 0, 1);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      PP.geo.drawImageTransformed(ctx, A.imgAdj, P.image, v.x, v.y, v.s);
+      ctx.restore();
+    }
 
     if (imgBelow) {
       ctx.save();
@@ -175,13 +185,6 @@
     }
 
     P.plates.forEach((p) => drawPlate(p, showResult, imgBelow));
-
-    if (imgOver) {
-      ctx.save();
-      ctx.globalAlpha = 0.45;
-      PP.geo.drawImageTransformed(ctx, A.imgAdj, P.image, v.x, v.y, v.s);
-      ctx.restore();
-    }
 
     // Étiquettes des plaques
     P.plates.forEach((p) => drawPlateLabel(p));
@@ -226,7 +229,12 @@
     if (sx > W || sy > H || sx + sw < 0 || sy + sh < 0) return;
     const grid = showResult ? A.project.result.grids[p.id] : null;
     if (grid) {
-      drawGrid(p, grid, sx, sy);
+      if (layerMode) {
+        ctx.save();
+        ctx.globalAlpha = U.clamp((A.project.disp.layerBeads == null ? 70 : A.project.disp.layerBeads) / 100, 0, 1);
+        drawGrid(p, grid, sx, sy);
+        ctx.restore();
+      } else drawGrid(p, grid, sx, sy);
     } else {
       if (!imgVisible) { ctx.fillStyle = theme.plateFill; ctx.fillRect(sx, sy, sw, sh); }
       else if (A.tab === 'plates') { ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(sx, sy, sw, sh); }
@@ -271,9 +279,10 @@
     ctx.fillText(txt, lx + 6, ly + 10.5);
   }
 
+  let layerMode = false;
   function plateCacheCanvas(p, grid, colors) {
     let c = A.plateCache.get(p.id);
-    if (c && c.width === p.w && c.height === p.h) return c;
+    if (c && c.width === p.w && c.height === p.h && c._layer === layerMode) return c;
     c = document.createElement('canvas');
     c.width = p.w; c.height = p.h;
     const cx = c.getContext('2d');
@@ -283,9 +292,10 @@
     for (let i = 0; i < grid.length; i++) {
       const v = grid[i];
       const col = v >= 0 && rgb[v] ? rgb[v] : e;
-      id.data[i * 4] = col[0]; id.data[i * 4 + 1] = col[1]; id.data[i * 4 + 2] = col[2]; id.data[i * 4 + 3] = 255;
+      id.data[i * 4] = col[0]; id.data[i * 4 + 1] = col[1]; id.data[i * 4 + 2] = col[2]; id.data[i * 4 + 3] = v < 0 && layerMode ? 0 : 255;
     }
     cx.putImageData(id, 0, 0);
+    c._layer = layerMode;
     A.plateCache.set(p.id, c);
     return c;
   }
@@ -312,6 +322,12 @@
         const val = grid[j * p.w + i];
         const x = sx + i * v.s + gap / 2, y = sy + j * v.s + gap / 2;
         if (val < 0 || !colors[val]) {
+          if (layerMode) {
+            // calque : picot vide transparent, juste un petit repère pour viser
+            ctx.fillStyle = 'rgba(255,255,255,0.55)';
+            ctx.fillRect(x + c / 2 - 1, y + c / 2 - 1, 2, 2);
+            continue;
+          }
           ctx.fillStyle = theme.empty;
           ctx.fillRect(x + c * 0.12, y + c * 0.12, c * 0.76, c * 0.76);
           continue;
@@ -423,6 +439,26 @@
     startGesture(e, pt);
   });
 
+  const TOUCH_WAIT = 120; // ms : le temps de laisser le 2e doigt d'un zoom se poser
+  // lance l'outil de retouche sur la case touchée (tout de suite à la souris, après l'attente au doigt)
+  function beginEdit(src) {
+    const { cell, w } = src;
+    if (A.edit.tool === 'pick') { gesture = null; pickAt(cell); A.redraw(); return; }
+    if (A.edit.tool === 'fill') { gesture = null; floodFill(cell); A.redraw(); return; }
+    gesture = { type: 'paint', changes: new Map(), last: { x: Math.floor(w.x), y: Math.floor(w.y) } };
+    paintAt(Math.floor(w.x), Math.floor(w.y));
+    A.redraw();
+  }
+  // un trait commencé puis interrompu par un 2e doigt est entièrement annulé
+  function revertStroke(g) {
+    g.changes.forEach((c) => {
+      const grid = A.project.result.grids[c.pid];
+      if (grid) grid[c.idx] = c.old;
+      A.plateCache.delete(c.pid);
+    });
+    g.changes.clear();
+  }
+
   function startGesture(e, pt) {
     const v = view();
     const w = toWorld(pt.x, pt.y, v);
@@ -471,11 +507,14 @@
       const cell = A.cellAt(w.x, w.y);
       if (cell) {
         A.sel = cell.plate.id;
-        if (A.edit.tool === 'pick') { pickAt(cell); return; }
-        if (A.edit.tool === 'fill') { floodFill(cell); return; }
-        gesture = { type: 'paint', changes: new Map(), last: { x: Math.floor(w.x), y: Math.floor(w.y) } };
-        paintAt(Math.floor(w.x), Math.floor(w.y));
-        A.redraw();
+        // au doigt : on attend un instant avant de peindre. Si un 2e doigt se pose (zoom), rien n'est peint.
+        if (e.pointerType === 'touch') {
+          const gw = { type: 'touchwait', cell, w, sx: pt.x, sy: pt.y };
+          gesture = gw;
+          setTimeout(() => { if (gesture === gw && pointers.size === 1) beginEdit(gw); }, TOUCH_WAIT);
+          return;
+        }
+        beginEdit({ cell, w });
         return;
       }
     }
@@ -511,7 +550,20 @@
   function moveGesture(pt) {
     const v = view();
     const w = toWorld(pt.x, pt.y, v);
-    const g = gesture;
+    let g = gesture;
+    if (g.type === 'touchwait') {
+      if (Math.hypot(pt.x - g.sx, pt.y - g.sy) < 7) return;
+      if (A.edit.tool === 'pick' || A.edit.tool === 'fill') {
+        // glisser avec la pipette ou le pot de peinture : on déplace la vue
+        const vv = view();
+        gesture = { type: 'pan', sx: g.sx, sy: g.sy, vx: vv.x, vy: vv.y };
+        g = gesture;
+      } else {
+        beginEdit(g);
+        g = gesture;
+        if (!g) return;
+      }
+    }
     if (g.type === 'pan') {
       if (Math.abs(pt.x - g.sx) + Math.abs(pt.y - g.sy) > 3) g.click = false;
       v.x = g.vx - (pt.x - g.sx) / v.s;
@@ -635,8 +687,15 @@
       if (g.moved) { A.touch(); A.panels.refreshPlates(); }
     } else if (g.type === 'imgMove' || g.type === 'imgResize') {
       if (g.moved) { A.touch(); A.panels.refreshImageInfo(); }
+    } else if (g.type === 'touchwait') {
+      // simple toucher, sans 2e doigt : on applique l'outil sur la case
+      if (!cancelled) {
+        beginEdit(g);
+        if (gesture && gesture.type === 'paint') { const pg = gesture; gesture = null; commitStroke(pg); }
+      }
     } else if (g.type === 'paint') {
-      commitStroke(g);
+      if (cancelled) revertStroke(g);
+      else commitStroke(g);
     } else if (g.type === 'pan' && g.click && !cancelled) {
       if (A.tab === 'plates' && A.sel) { A.sel = null; A.panels.refreshPlates(); }
     } else if (g.type === 'rect') {
@@ -779,7 +838,49 @@
     A.panels.refreshEdit();
   };
 
+  // Pipette sur la photo : couleur de l'image d'origine sous le picot → perle la plus proche de la palette
+  function photoColorAt(cell) {
+    const P = A.project;
+    if (!P.image || !A.imgAdj) return null;
+    const K = 6;
+    const c = document.createElement('canvas');
+    c.width = K; c.height = K;
+    const x = c.getContext('2d', { willReadFrequently: true });
+    const wx = cell.plate.x + (cell.idx % cell.plate.w), wy = cell.plate.y + Math.floor(cell.idx / cell.plate.w);
+    x.imageSmoothingEnabled = true;
+    PP.geo.drawImageTransformed(x, A.imgAdj, P.image, wx, wy, K);
+    const d = x.getImageData(1, 1, K - 2, K - 2).data;
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 128) continue; r += U.S2L[d[i]]; g += U.S2L[d[i + 1]]; b += U.S2L[d[i + 2]]; n++; }
+    if (!n) return null;
+    return [U.linToSrgb(r / n), U.linToSrgb(g / n), U.linToSrgb(b / n)];
+  }
+  function nearestColor(rgb) {
+    const lab = U.rgbToLab(rgb[0], rgb[1], rgb[2]);
+    let best = -1, bd = Infinity;
+    A.project.result.colors.forEach((c, i) => {
+      const q = U.hexToRgb(c.hex);
+      if (!q) return;
+      const d = U.deltaE2000(lab, U.rgbToLab(q[0], q[1], q[2]));
+      if (d < bd) { bd = d; best = i; }
+    });
+    return { idx: best, d: bd };
+  }
+  S.photoColorAt = photoColorAt;
+
   function pickAt(cell) {
+    if (A.edit.pickPhoto && A.project.image && A.imgAdj) {
+      const rgb = photoColorAt(cell);
+      if (!rgb) { A.toast('Pas de photo sous ce picot.'); return; }
+      const m = nearestColor(rgb);
+      if (m.idx < 0) return;
+      const col = A.project.result.colors[m.idx];
+      A.edit.color = m.idx;
+      A.edit.tool = 'brush';
+      A.panels.refreshEdit();
+      A.toast('Photo ' + U.rgbToHex(rgb[0], rgb[1], rgb[2]) + ' → ' + col.code + (col.name ? ' · ' + col.name : '') + (m.d > 12 ? ' (aucune perle très proche dans la palette)' : ''));
+      return;
+    }
     const g = A.project.result.grids[cell.plate.id];
     const v = g ? g[cell.idx] : -1;
     if (v >= 0) {

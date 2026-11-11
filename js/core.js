@@ -372,7 +372,8 @@
     p.conv.maxColors = 0; // v3 : la réduction se fait après coup (Retouche › Limiter le nombre de couleurs)
     p.guide = Object.assign({ plateId: null, mode: 'color', color: null, row: 0, done: {}, others: 'dim', codes: true, rot: 0 }, p.guide || {});
     p.exp = Object.assign({ bg: 'white', style: 'square', codes: true, guides: true, labels4: true, minSide: 4320 }, p.exp || {});
-    p.disp = Object.assign({ opacity: 85, beads: false, codes: true, overlay: false }, p.disp || {});
+    p.disp = Object.assign({ opacity: 85, beads: false, codes: true, overlay: false, layer: false, layerImg: 60, layerBeads: 70 }, p.disp || {});
+    if (p.disp.overlay) { p.disp.layer = true; p.disp.overlay = false; } // ancienne superposition → dessin sur calque
     if (p.result) {
       Object.keys(p.result.grids).forEach((k) => {
         const g = p.result.grids[k];
@@ -726,7 +727,7 @@
   };
 
   // ---------- Sauvegardes ----------
-  A.APP_VERSION = '3.1.2';
+  A.APP_VERSION = '3.2.0';
 
   async function serializeProject(p) {
     const q = Object.assign({}, p);
